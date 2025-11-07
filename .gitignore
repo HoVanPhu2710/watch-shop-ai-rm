@@ -1,0 +1,123 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+*.env
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+logs/
+*.log
+
+# Testing caches
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Type checking / static analysis
+.mypy_cache/
+.pyre/
+.pytype/
+
+# General caches
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Data & model artifacts
+models/
+data/
+*.pkl
+*.h5
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Tool caches
+**/.ruff_cache/
+**/.pytest_cache/
+
+# -------- Additional ignores for ML / data projects --------
+# Build/packaging helpers
+pip-wheel-metadata/
+__pypackages__/
+.python-version
+
+# Test and coverage extras
+.coverage.*
+.tox/
+.nox/
+
+# Compiled native extensions
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# Experiments / notebooks / reports
+notebooks/
+experiments/
+reports/
+outputs/
+runs/
+wandb/
+mlruns/
+tensorboard/
+tb_logs/
+
+# Checkpoints and large artifacts
+checkpoints/
+artifacts/
+*.ckpt
+*.pt
+*.pth
+*.joblib
+*.sav
+*.npz
+*.npy
+
+# Structured data subfolders
+data/raw/
+data/interim/
+data/processed/
+
+# Data/versioning tools
+.dvc/
+.dvcignore
+.mlem/
+
+# Docs
+docs/_build/
+
+# OS and editor extras
+.desktop
+desktop.ini
+ehthumbs.db
+.history/
+*.code-workspace

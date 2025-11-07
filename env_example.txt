@@ -1,0 +1,25 @@
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=watch_shop
+DB_USER=postgres
+DB_PASSWORD=your_password
+
+# Model Configuration
+MODEL_SAVE_PATH=./models
+BATCH_SIZE=32
+EPOCHS=50
+LEARNING_RATE=0.001
+
+# Recommendation Configuration
+MAX_RECOMMENDATIONS=10
+RECOMMENDATION_EXPIRY_HOURS=24
+
+# Training Configuration
+MIN_INTERACTIONS_PER_USER=5
+MIN_INTERACTIONS_PER_ITEM=3
+TRAIN_TEST_SPLIT=0.8
+
+# Hybrid Model Weights
+COLLABORATIVE_WEIGHT=0.6
+CONTENT_BASED_WEIGHT=0.4
