@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+# Initialize database connection lazily (will be initialized on first use)
+
 class AIRecommendationServer:
     def __init__(self):
         self.hybrid_model = None

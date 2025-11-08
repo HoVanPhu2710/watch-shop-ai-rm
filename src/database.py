@@ -6,9 +6,13 @@ from config import Config
 class DatabaseConnection:
     def __init__(self):
         self.pool = None
-        self.init_pool()
+        self._initialized = False
 
     def init_pool(self):
+        """Initialize connection pool (lazy initialization)"""
+        if self._initialized and self.pool:
+            return
+        
         try:
             self.pool = psycopg2.pool.SimpleConnectionPool(
                 1, 10,  # minconn, maxconn, update as needed
@@ -20,11 +24,18 @@ class DatabaseConnection:
             )
             if self.pool:
                 print("Connection pool created successfully")
+                self._initialized = True
         except Exception as e:
             print(f"Error creating connection pool: {e}")
             raise
+    
+    def _ensure_pool(self):
+        """Ensure connection pool is initialized"""
+        if not self._initialized or not self.pool:
+            self.init_pool()
 
     def get_connection(self):
+        self._ensure_pool()
         try:
             return self.pool.getconn()
         except Exception as e:
@@ -39,6 +50,7 @@ class DatabaseConnection:
             raise
 
     def execute_query(self, query, params=None):
+        self._ensure_pool()
         conn = self.get_connection()
         try:
             df = pd.read_sql_query(query, conn, params=params)
@@ -50,6 +62,7 @@ class DatabaseConnection:
             self.put_connection(conn)
 
     def execute_insert(self, query, params=None):
+        self._ensure_pool()
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
