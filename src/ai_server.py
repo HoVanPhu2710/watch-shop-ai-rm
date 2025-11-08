@@ -64,7 +64,18 @@ class AIRecommendationServer:
             
             if not os.path.exists(model_path):
                 logger.error(f"Model path not found: {model_path}")
-                logger.error(f"Directory contents: {os.listdir(os.path.dirname(model_path)) if os.path.exists(os.path.dirname(model_path)) else 'Parent directory does not exist'}")
+                parent_dir = os.path.dirname(model_path)
+                if os.path.exists(parent_dir):
+                    logger.error(f"Parent directory exists. Contents: {os.listdir(parent_dir)}")
+                else:
+                    logger.error(f"Parent directory does not exist: {parent_dir}")
+                    logger.info(f"Creating models directory structure...")
+                    try:
+                        os.makedirs(model_path, exist_ok=True)
+                        os.makedirs(encoder_path, exist_ok=True)
+                        logger.info(f"Created models directory structure. Waiting for scheduler to train models...")
+                    except Exception as e:
+                        logger.error(f"Failed to create models directory: {str(e)}")
                 return False
                 
             # Load encoders
