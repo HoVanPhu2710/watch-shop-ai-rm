@@ -93,8 +93,8 @@ def main():
     print("Starting recommendation system scheduler...")
     
     # Get intervals from environment variables
-    training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '360'))  # Default 6 hours
-    recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '120'))  # Default 2 hours
+    training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '15'))  # Default 6 hours
+    recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))  # Default 2 hours
     
     # Schedule model training
     if training_interval_minutes >= 60:

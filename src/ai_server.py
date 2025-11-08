@@ -248,8 +248,11 @@ class AIRecommendationServer:
     
     def get_anonymous_recommendations(self, limit=10, profile='general'):
         """Get recommendations for anonymous users using default profiles"""
+        # Try to load models if not loaded yet
         if not self.model_loaded:
-            return {"error": "Model not loaded"}
+            logger.warning("Models not loaded, attempting to load now...")
+            if not self.load_models():
+                return {"error": "Model not loaded. Please check logs and ensure models are available."}
         
         try:
             # Define default profiles
@@ -510,8 +513,11 @@ class AIRecommendationServer:
     
     def get_recommendations(self, user_id, limit=10, exclude_interactions=False):
         """Get recommendations for a user"""
+        # Try to load models if not loaded yet
         if not self.model_loaded:
-            return {"error": "Model not loaded"}
+            logger.warning("Models not loaded, attempting to load now...")
+            if not self.load_models():
+                return {"error": "Model not loaded. Please check logs and ensure models are available."}
         
         try:
             # Get user features
@@ -616,8 +622,11 @@ class AIRecommendationServer:
     
     def get_similar_items(self, watch_id, limit=10):
         """Get similar items for a watch"""
+        # Try to load models if not loaded yet
         if not self.model_loaded:
-            return {"error": "Model not loaded"}
+            logger.warning("Models not loaded, attempting to load now...")
+            if not self.load_models():
+                return {"error": "Model not loaded. Please check logs and ensure models are available."}
         
         try:
             if watch_id not in self.item_features_cache.index:
@@ -667,6 +676,31 @@ class AIRecommendationServer:
 
 # Initialize AI server
 ai_server = AIRecommendationServer()
+
+# Load models on app initialization (for gunicorn)
+# This will be called when the module is imported
+def init_models():
+    """Initialize models in background thread"""
+    import threading
+    def load():
+        try:
+            logger.info("Attempting to load models on startup...")
+            if ai_server.load_models():
+                logger.info("Models loaded successfully on startup")
+            else:
+                logger.warning("Failed to load models on startup. Models will be loaded on first request.")
+        except Exception as e:
+            logger.error(f"Error loading models on startup: {str(e)}")
+    
+    # Start loading in background thread to not block app startup
+    thread = threading.Thread(target=load, daemon=True)
+    thread.start()
+
+# Try to load models on startup
+try:
+    init_models()
+except Exception as e:
+    logger.error(f"Failed to initialize models: {str(e)}")
 
 @app.route('/health', methods=['GET'])
 def health_check():
