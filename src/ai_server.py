@@ -46,21 +46,57 @@ class AIRecommendationServer:
         """Load trained models and encoders"""
         try:
             logger.info("Loading AI models...")
+            logger.info(f"Current working directory: {os.getcwd()}")
+            logger.info(f"MODEL_SAVE_PATH: {Config.MODEL_SAVE_PATH}")
+            
+            # Convert to absolute path if relative
+            if not os.path.isabs(Config.MODEL_SAVE_PATH):
+                base_path = os.path.dirname(os.path.abspath(__file__))
+                model_save_path = os.path.join(os.path.dirname(base_path), Config.MODEL_SAVE_PATH.lstrip('./'))
+            else:
+                model_save_path = Config.MODEL_SAVE_PATH
+            
+            logger.info(f"Absolute model save path: {model_save_path}")
             
             # Load hybrid model
-            model_path = os.path.join(Config.MODEL_SAVE_PATH, 'hybrid_model')
+            model_path = os.path.join(model_save_path, 'hybrid_model')
+            logger.info(f"Checking model path: {model_path}")
+            
             if not os.path.exists(model_path):
                 logger.error(f"Model path not found: {model_path}")
+                logger.error(f"Directory contents: {os.listdir(os.path.dirname(model_path)) if os.path.exists(os.path.dirname(model_path)) else 'Parent directory does not exist'}")
                 return False
                 
             # Load encoders
-            encoder_path = os.path.join(Config.MODEL_SAVE_PATH, 'encoders')
+            encoder_path = os.path.join(model_save_path, 'encoders')
+            logger.info(f"Loading encoders from: {encoder_path}")
+            
+            if not os.path.exists(encoder_path):
+                logger.error(f"Encoder path not found: {encoder_path}")
+                return False
+            
+            encoder_files = ['user_encoder.pkl', 'item_encoder.pkl', 'scaler.pkl']
+            for enc_file in encoder_files:
+                enc_path = os.path.join(encoder_path, enc_file)
+                if not os.path.exists(enc_path):
+                    logger.error(f"Encoder file not found: {enc_path}")
+                    return False
+            
+            logger.info("Loading encoder files...")
             self.user_encoder = joblib.load(os.path.join(encoder_path, 'user_encoder.pkl'))
             self.item_encoder = joblib.load(os.path.join(encoder_path, 'item_encoder.pkl'))
             self.scaler = joblib.load(os.path.join(encoder_path, 'scaler.pkl'))
+            logger.info("Encoders loaded successfully")
             
             # Load hybrid model metadata
-            metadata = joblib.load(os.path.join(model_path, 'hybrid_metadata.pkl'))
+            metadata_path = os.path.join(model_path, 'hybrid_metadata.pkl')
+            logger.info(f"Loading metadata from: {metadata_path}")
+            if not os.path.exists(metadata_path):
+                logger.error(f"Metadata file not found: {metadata_path}")
+                return False
+            
+            metadata = joblib.load(metadata_path)
+            logger.info(f"Metadata loaded: n_users={metadata.get('n_users')}, n_items={metadata.get('n_items')}")
             
             # Initialize hybrid model
             from hybrid_model import HybridRecommendationModel
@@ -72,18 +108,24 @@ class AIRecommendationServer:
             )
             
             # Load the actual model
+            logger.info("Loading hybrid model files...")
             self.hybrid_model.load_models(model_path)
+            logger.info("Hybrid model loaded successfully")
             
             # Load user and item features
+            logger.info("Loading features cache...")
             self.load_features_cache()
+            logger.info("Features cache loaded successfully")
             
             self.model_loaded = True
             self.last_model_load = datetime.now()
-            logger.info("Models loaded successfully")
+            logger.info("All models loaded successfully!")
             return True
             
         except Exception as e:
             logger.error(f"Failed to load models: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
     
     def load_features_cache(self):
@@ -517,7 +559,24 @@ class AIRecommendationServer:
         if not self.model_loaded:
             logger.warning("Models not loaded, attempting to load now...")
             if not self.load_models():
-                return {"error": "Model not loaded. Please check logs and ensure models are available."}
+                import os
+                from config import Config
+                # Get actual path for error message
+                if not os.path.isabs(Config.MODEL_SAVE_PATH):
+                    base_path = os.path.dirname(os.path.abspath(__file__))
+                    model_save_path = os.path.join(os.path.dirname(base_path), Config.MODEL_SAVE_PATH.lstrip('./'))
+                else:
+                    model_save_path = Config.MODEL_SAVE_PATH
+                model_path = os.path.join(model_save_path, 'hybrid_model')
+                return {
+                    "error": "Model not loaded. Please check logs and ensure models are available.",
+                    "debug_info": {
+                        "model_path": model_path,
+                        "model_path_exists": os.path.exists(model_path),
+                        "model_save_path": model_save_path,
+                        "current_directory": os.getcwd()
+                    }
+                }
         
         try:
             # Get user features
@@ -705,10 +764,40 @@ except Exception as e:
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    import os
+    from config import Config
+    
+    # Check model path
+    model_path_info = {}
+    try:
+        if not os.path.isabs(Config.MODEL_SAVE_PATH):
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            model_save_path = os.path.join(os.path.dirname(base_path), Config.MODEL_SAVE_PATH.lstrip('./'))
+        else:
+            model_save_path = Config.MODEL_SAVE_PATH
+        
+        model_path = os.path.join(model_save_path, 'hybrid_model')
+        encoder_path = os.path.join(model_save_path, 'encoders')
+        
+        model_path_info = {
+            "model_save_path": model_save_path,
+            "model_path_exists": os.path.exists(model_path),
+            "encoder_path_exists": os.path.exists(encoder_path),
+            "current_directory": os.getcwd()
+        }
+        
+        if os.path.exists(model_path):
+            model_path_info["model_files"] = os.listdir(model_path)
+        if os.path.exists(encoder_path):
+            model_path_info["encoder_files"] = os.listdir(encoder_path)
+    except Exception as e:
+        model_path_info["error"] = str(e)
+    
     return jsonify({
         "status": "healthy",
         "model_loaded": ai_server.model_loaded,
-        "last_model_load": ai_server.last_model_load.isoformat() if ai_server.last_model_load else None
+        "last_model_load": ai_server.last_model_load.isoformat() if ai_server.last_model_load else None,
+        "model_path_info": model_path_info
     })
 
 @app.route('/recommendations/<int:user_id>', methods=['GET'])
