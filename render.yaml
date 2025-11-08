@@ -9,6 +9,9 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: DATABASE_URL
+        sync: false
+      # Alternative: Use individual DB variables if DATABASE_URL is not set
       - key: DB_HOST
         sync: false
       - key: DB_PORT
@@ -60,6 +63,9 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: DATABASE_URL
+        sync: false
+      # Alternative: Use individual DB variables if DATABASE_URL is not set
       - key: DB_HOST
         sync: false
       - key: DB_PORT
