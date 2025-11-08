@@ -33,9 +33,18 @@ class DatabaseConnection:
                     'port': parsed.port or 5432,
                     'database': parsed.path[1:] if parsed.path.startswith('/') else parsed.path,  # Remove leading '/'
                     'user': parsed.username,
-                    'password': urllib.parse.unquote(parsed.password),  # Decode URL-encoded password
                     'sslmode': sslmode
                 }
+                
+                # Handle password (may be None or URL-encoded)
+                if parsed.password:
+                    conn_params['password'] = urllib.parse.unquote(parsed.password)  # Decode URL-encoded password
+                elif parsed.username:
+                    # Password might be in username:password format
+                    if ':' in parsed.username:
+                        user, password = parsed.username.rsplit(':', 1)
+                        conn_params['user'] = user
+                        conn_params['password'] = urllib.parse.unquote(password)
                 
                 # Add options if present (for Supabase project identifier)
                 if options:
@@ -45,7 +54,11 @@ class DatabaseConnection:
                 if 'supabase' in parsed.hostname and 'sslmode' not in connection_string:
                     conn_params['sslmode'] = 'require'
                 
-                print(f"Connecting to database: {parsed.hostname}:{conn_params['port']}")
+                # Validate required parameters
+                if not conn_params.get('host') or not conn_params.get('database'):
+                    raise ValueError(f"Invalid DATABASE_URL: missing host or database. Host: {conn_params.get('host')}, Database: {conn_params.get('database')}")
+                
+                print(f"Connecting to database: {conn_params.get('host')}:{conn_params.get('port')}")
                 self.pool = psycopg2.pool.SimpleConnectionPool(1, 10, **conn_params)
             else:
                 # Use individual config
@@ -67,7 +80,17 @@ class DatabaseConnection:
                 self._initialized = True
         except Exception as e:
             print(f"Error creating connection pool: {e}")
-            print(f"Host: {Config.DB_HOST}, Port: {Config.DB_PORT}")
+            connection_string = os.getenv('DATABASE_URL')
+            if connection_string:
+                print(f"DATABASE_URL is set (length: {len(connection_string)})")
+                # Show first and last 30 chars for debugging (hide password)
+                if len(connection_string) > 60:
+                    print(f"DATABASE_URL preview: {connection_string[:30]}...{connection_string[-30:]}")
+                else:
+                    print(f"DATABASE_URL: {connection_string}")
+            else:
+                print(f"DATABASE_URL is NOT set. Using individual config:")
+                print(f"Host: {Config.DB_HOST}, Port: {Config.DB_PORT}, DB: {Config.DB_NAME}, User: {Config.DB_USER}")
             raise
     
     def _ensure_pool(self):
