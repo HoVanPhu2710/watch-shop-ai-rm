@@ -18,10 +18,11 @@ def train_model():
     
     try:
         # Run training script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         result = subprocess.run([
             sys.executable, 
-            os.path.join(os.path.dirname(__file__), 'train_model_fixed.py')
-        ], capture_output=True, text=True)
+            os.path.join(script_dir, 'train_model_fixed.py')
+        ], capture_output=True, text=True, cwd=script_dir)
         
         if result.returncode == 0:
             print(f"[{datetime.now()}] Model training completed successfully")
@@ -42,8 +43,15 @@ def reload_ai_models():
     print(f"[{datetime.now()}] Reloading models in AI server...")
     
     try:
+        # Get AI server URL from environment variable
+        ai_server_url = os.getenv('AI_SERVER_URL', 'http://localhost:5001')
+        if not ai_server_url.startswith('http'):
+            ai_server_url = f'http://{ai_server_url}'
+        
         # Call AI server reload endpoint
-        response = requests.post('http://localhost:5001/reload-models', timeout=30)
+        reload_url = f'{ai_server_url}/reload-models'
+        print(f"[{datetime.now()}] Calling reload endpoint: {reload_url}")
+        response = requests.post(reload_url, timeout=30)
         
         if response.status_code == 200:
             result = response.json()
@@ -65,11 +73,12 @@ def generate_recommendations():
     
     try:
         # Run recommendation generation script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         result = subprocess.run([
             sys.executable, 
-            os.path.join(os.path.dirname(__file__), 'train_model_fixed.py'),
+            os.path.join(script_dir, 'train_model_fixed.py'),
             '--generate-recommendations'
-        ], capture_output=True, text=True)
+        ], capture_output=True, text=True, cwd=script_dir)
         
         if result.returncode == 0:
             print(f"[{datetime.now()}] Recommendation generation completed successfully")
@@ -83,11 +92,24 @@ def main():
     """Main scheduler function"""
     print("Starting recommendation system scheduler...")
     
-    # Schedule model training every 6 hours
-    schedule.every(15).minutes.do(train_model)
+    # Get intervals from environment variables
+    training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '360'))  # Default 6 hours
+    recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '120'))  # Default 2 hours
     
-    # Schedule recommendation generation every 2 hours
-    schedule.every(5).minutes.do(generate_recommendations)
+    # Schedule model training
+    if training_interval_minutes >= 60:
+        schedule.every(training_interval_minutes // 60).hours.do(train_model)
+    else:
+        schedule.every(training_interval_minutes).minutes.do(train_model)
+    
+    # Schedule recommendation generation
+    if recommendation_interval_minutes >= 60:
+        schedule.every(recommendation_interval_minutes // 60).hours.do(generate_recommendations)
+    else:
+        schedule.every(recommendation_interval_minutes).minutes.do(generate_recommendations)
+    
+    print(f"Training scheduled every {training_interval_minutes} minutes")
+    print(f"Recommendation generation scheduled every {recommendation_interval_minutes} minutes")
     
     # Run initial training
     print("Running initial model training...")

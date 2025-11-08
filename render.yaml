@@ -1,0 +1,96 @@
+services:
+  - type: web
+    name: ai-recommendation-server
+    env: python
+    region: singapore
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 src.ai_server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: MODEL_SAVE_PATH
+        value: ./models
+      - key: AI_SERVER_HOST
+        value: 0.0.0.0
+      - key: BATCH_SIZE
+        value: 32
+      - key: EPOCHS
+        value: 50
+      - key: LEARNING_RATE
+        value: 0.001
+      - key: MAX_RECOMMENDATIONS
+        value: 10
+      - key: RECOMMENDATION_EXPIRY_HOURS
+        value: 24
+      - key: MIN_INTERACTIONS_PER_USER
+        value: 5
+      - key: MIN_INTERACTIONS_PER_ITEM
+        value: 3
+      - key: TRAIN_TEST_SPLIT
+        value: 0.8
+      - key: COLLABORATIVE_WEIGHT
+        value: 0.6
+      - key: CONTENT_BASED_WEIGHT
+        value: 0.4
+      - key: AI_SERVER_URL
+        sync: false
+      - key: TRAINING_INTERVAL_MINUTES
+        value: 360
+      - key: RECOMMENDATION_INTERVAL_MINUTES
+        value: 120
+
+  - type: worker
+    name: ai-scheduler
+    env: python
+    region: singapore
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python src/scheduler.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: MODEL_SAVE_PATH
+        value: ./models
+      - key: AI_SERVER_URL
+        sync: false
+      - key: TRAINING_INTERVAL_MINUTES
+        value: 360
+      - key: RECOMMENDATION_INTERVAL_MINUTES
+        value: 120
+      - key: BATCH_SIZE
+        value: 32
+      - key: EPOCHS
+        value: 50
+      - key: LEARNING_RATE
+        value: 0.001
+      - key: MIN_INTERACTIONS_PER_USER
+        value: 5
+      - key: MIN_INTERACTIONS_PER_ITEM
+        value: 3
+      - key: TRAIN_TEST_SPLIT
+        value: 0.8
+      - key: COLLABORATIVE_WEIGHT
+        value: 0.6
+      - key: CONTENT_BASED_WEIGHT
+        value: 0.4

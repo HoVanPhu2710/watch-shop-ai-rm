@@ -269,6 +269,10 @@ def generate_training_plots():
     """Generate training plots after model training"""
     try:
         print("Generating training plots...")
+        # Add scripts directory to path
+        scripts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts')
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
         from plot_training_results import main as plot_main
         plot_main()
         print("Training plots generated successfully!")
