@@ -51,20 +51,15 @@ class AIRecommendationServer:
             
             # Convert to absolute path if relative
             # Training script: src/src/train_model_fixed.py -> base_dir = src/ -> models = src/models
-            # AI server: src/ai_server.py -> should also use src/ as base_dir
+            # AI server: src/src/ai_server.py -> should also use src/ as base_dir (go up one level)
             # Both should resolve to: /opt/render/project/src/models
             if not os.path.isabs(Config.MODEL_SAVE_PATH):
                 # Get absolute path of this file
                 current_file = os.path.abspath(__file__)
-                # Get directory containing this file (src/)
+                # Get directory containing this file (src/src/)
                 script_dir = os.path.dirname(current_file)
-                
-                # Training script goes: src/src/ -> dirname -> src/
-                # AI server is already in src/, so we use script_dir directly
-                # But we need to ensure we're at the same level as training's base_dir
-                # Training: os.path.dirname(os.path.dirname(__file__)) from src/src/ = src/
-                # AI server: os.path.dirname(__file__) from src/ = src/ (same!)
-                base_dir = script_dir
+                # Go up one level to match training script's base_dir (src/)
+                base_dir = os.path.dirname(script_dir)
                 model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
                 
                 logger.info(f"Current file: {current_file}")
@@ -610,7 +605,7 @@ class AIRecommendationServer:
                 # Get actual path for error message
                 if not os.path.isabs(Config.MODEL_SAVE_PATH):
                     script_dir = os.path.dirname(os.path.abspath(__file__))
-                    base_dir = script_dir  # Stay at src/ level to match training
+                    base_dir = os.path.dirname(script_dir)  # Go up one level to match training
                     model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
                 else:
                     model_save_path = Config.MODEL_SAVE_PATH
