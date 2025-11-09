@@ -54,12 +54,28 @@ def train_model():
         print(f"[{datetime.now()}] 📝 Python executable: {sys.executable}")
         sys.stdout.flush()
         
+        print(f"[{datetime.now()}] 🔄 Starting subprocess...")
+        sys.stdout.flush()
+        
+        # Run with timeout and real-time output capture
         result = subprocess.run([
             sys.executable, 
             training_script
-        ], capture_output=True, text=True, cwd=script_dir)
+        ], capture_output=True, text=True, cwd=script_dir, timeout=1800)  # 30 minutes timeout
         
         training_state['last_training_end'] = datetime.now()
+        
+        # Print output immediately for debugging
+        if result.stdout:
+            print(f"[{datetime.now()}] ========== STDOUT ==========")
+            print(result.stdout)
+            print(f"[{datetime.now()}] ===========================")
+        if result.stderr:
+            print(f"[{datetime.now()}] ========== STDERR ==========")
+            print(result.stderr)
+            print(f"[{datetime.now()}] ===========================")
+        
+        sys.stdout.flush()
         
         if result.returncode == 0:
             training_state['last_training_status'] = 'success'
@@ -105,12 +121,19 @@ def train_model():
             print(result.stdout if result.stdout else "No stdout output")
             print(f"[{datetime.now()}] ===========================")
             
+    except subprocess.TimeoutExpired:
+        training_state['last_training_status'] = 'timeout'
+        training_state['last_training_error'] = 'Training timeout after 30 minutes'
+        print(f"[{datetime.now()}] ⏱️ Training timeout after 30 minutes")
+        sys.stdout.flush()
     except Exception as e:
         training_state['last_training_status'] = 'error'
         training_state['last_training_error'] = str(e)
         print(f"[{datetime.now()}] ❌ Error during model training: {str(e)}")
         import traceback
-        print(f"[{datetime.now()}] Traceback: {traceback.format_exc()}")
+        print(f"[{datetime.now()}] Traceback:")
+        traceback.print_exc()
+        sys.stdout.flush()
     finally:
         training_state['is_training'] = False
         duration = (training_state['last_training_end'] - training_state['last_training_start']).total_seconds() if training_state['last_training_end'] else None

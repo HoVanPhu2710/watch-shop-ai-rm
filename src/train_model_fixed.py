@@ -16,12 +16,16 @@ from config import Config
 
 def main():
     """Main training function"""
+    import sys
+    
     print("=" * 80)
     print("Starting hybrid recommendation model training...")
     print(f"Current working directory: {os.getcwd()}")
     print(f"Script location: {os.path.abspath(__file__)}")
     print(f"MODEL_SAVE_PATH from config: {Config.MODEL_SAVE_PATH}")
     print("=" * 80)
+    sys.stdout.flush()
+    
     start_time = time.time()
     
     try:
@@ -36,9 +40,11 @@ def main():
         if len(interactions_df) == 0:
             print("❌ No interaction data found. Exiting...")
             print("Please ensure database has interaction data.")
+            sys.stdout.flush()
             return
         
         print(f"✅ Loaded {len(interactions_df)} interactions")
+        sys.stdout.flush()
         
         print("Loading user features...")
         user_features_df = processor.load_user_features()
@@ -158,11 +164,13 @@ def main():
         print(f"Training completed successfully in {training_duration} seconds")
         print(f"Model saved to: {model_path}")
         print(f"Encoders saved to: {encoder_path}")
+        sys.stdout.flush()
         
     except Exception as e:
         print(f"Training failed: {str(e)}")
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         sys.exit(1)
     
     finally:
