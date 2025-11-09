@@ -797,11 +797,43 @@ def init_models():
     thread = threading.Thread(target=load, daemon=True)
     thread.start()
 
+# Initialize scheduler in background thread (runs in same service to share filesystem)
+def init_scheduler():
+    """Initialize scheduler in background thread"""
+    import threading
+    import os
+    
+    def start_scheduler():
+        try:
+            # Only start scheduler if enabled via environment variable
+            # This allows running scheduler separately if needed
+            if os.getenv('ENABLE_SCHEDULER', 'true').lower() == 'true':
+                logger.info("Starting scheduler in background thread...")
+                from scheduler import main as scheduler_main
+                scheduler_main()
+            else:
+                logger.info("Scheduler disabled via ENABLE_SCHEDULER environment variable")
+        except Exception as e:
+            logger.error(f"Error starting scheduler: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    # Start scheduler in background thread
+    scheduler_thread = threading.Thread(target=start_scheduler, daemon=True)
+    scheduler_thread.start()
+    logger.info("Scheduler thread started")
+
 # Try to load models on startup
 try:
     init_models()
 except Exception as e:
     logger.error(f"Failed to initialize models: {str(e)}")
+
+# Start scheduler in same service (shares filesystem)
+try:
+    init_scheduler()
+except Exception as e:
+    logger.error(f"Failed to initialize scheduler: {str(e)}")
 
 @app.route('/health', methods=['GET'])
 def health_check():
