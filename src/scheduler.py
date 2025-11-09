@@ -32,6 +32,8 @@ recommendation_state = {
 
 def train_model():
     """Train the recommendation model"""
+    import sys
+    
     training_state['is_training'] = True
     training_state['last_training_start'] = datetime.now()
     training_state['last_training_status'] = 'running'
@@ -41,15 +43,21 @@ def train_model():
     print(f"[{datetime.now()}] 🚀 Starting scheduled model training...")
     print(f"[{datetime.now()}] Training count: {training_state['training_count'] + 1}")
     print(f"[{datetime.now()}] ========================================")
+    sys.stdout.flush()
     
     try:
+        import sys as sys_module
         # Run training script
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        print(f"[{datetime.now()}] Running training script: {os.path.join(script_dir, 'train_model_fixed.py')}")
+        training_script = os.path.join(script_dir, 'train_model_fixed.py')
+        print(f"[{datetime.now()}] 📝 Running training script: {training_script}")
+        print(f"[{datetime.now()}] 📝 Working directory: {script_dir}")
+        print(f"[{datetime.now()}] 📝 Python executable: {sys_module.executable}")
+        sys.stdout.flush()
         
         result = subprocess.run([
-            sys.executable, 
-            os.path.join(script_dir, 'train_model_fixed.py')
+            sys_module.executable, 
+            training_script
         ], capture_output=True, text=True, cwd=script_dir)
         
         training_state['last_training_end'] = datetime.now()
@@ -186,44 +194,80 @@ def generate_recommendations():
 
 def main():
     """Main scheduler function"""
-    print("Starting recommendation system scheduler...")
+    import sys
     
-    # Get intervals from environment variables
-    training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '15'))  # Default 15 minutes
-    recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))  # Default 5 minutes
-    
-    # Schedule model training
-    if training_interval_minutes >= 60:
-        schedule.every(training_interval_minutes // 60).hours.do(train_model)
-    else:
-        schedule.every(training_interval_minutes).minutes.do(train_model)
-    
-    # Schedule recommendation generation
-    if recommendation_interval_minutes >= 60:
-        schedule.every(recommendation_interval_minutes // 60).hours.do(generate_recommendations)
-    else:
-        schedule.every(recommendation_interval_minutes).minutes.do(generate_recommendations)
-    
-    print(f"✅ Training scheduled every {training_interval_minutes} minutes")
-    print(f"✅ Recommendation generation scheduled every {recommendation_interval_minutes} minutes")
-    print(f"📅 Next training: {schedule.next_run() if hasattr(schedule, 'next_run') else 'N/A'}")
-    
-    # Run initial training
-    print("=" * 60)
-    print("🚀 Running initial model training...")
-    print("=" * 60)
-    train_model()
-    
-    print("Scheduler started. Press Ctrl+C to stop.")
+    print("=" * 80)
+    print(f"[{datetime.now()}] 🚀 Starting recommendation system scheduler...")
+    print("=" * 80)
+    sys.stdout.flush()
     
     try:
+        # Get intervals from environment variables
+        training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '15'))  # Default 15 minutes
+        recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))  # Default 5 minutes
+        
+        print(f"[{datetime.now()}] 📋 Configuration:")
+        print(f"[{datetime.now()}]   - Training interval: {training_interval_minutes} minutes")
+        print(f"[{datetime.now()}]   - Recommendation interval: {recommendation_interval_minutes} minutes")
+        sys.stdout.flush()
+        
+        # Schedule model training
+        if training_interval_minutes >= 60:
+            schedule.every(training_interval_minutes // 60).hours.do(train_model)
+        else:
+            schedule.every(training_interval_minutes).minutes.do(train_model)
+        
+        # Schedule recommendation generation
+        if recommendation_interval_minutes >= 60:
+            schedule.every(recommendation_interval_minutes // 60).hours.do(generate_recommendations)
+        else:
+            schedule.every(recommendation_interval_minutes).minutes.do(generate_recommendations)
+        
+        print(f"[{datetime.now()}] ✅ Training scheduled every {training_interval_minutes} minutes")
+        print(f"[{datetime.now()}] ✅ Recommendation generation scheduled every {recommendation_interval_minutes} minutes")
+        
+        # Get next run time
+        try:
+            jobs = schedule.jobs
+            if jobs:
+                next_run = min(job.next_run for job in jobs)
+                print(f"[{datetime.now()}] 📅 Next scheduled run: {next_run}")
+            else:
+                print(f"[{datetime.now()}] ⚠️ No scheduled jobs found")
+        except Exception as e:
+            print(f"[{datetime.now()}] ⚠️ Could not determine next run time: {e}")
+        
+        sys.stdout.flush()
+        
+        # Run initial training
+        print("=" * 80)
+        print(f"[{datetime.now()}] 🚀 Running initial model training...")
+        print("=" * 80)
+        sys.stdout.flush()
+        
+        train_model()
+        
+        print("=" * 80)
+        print(f"[{datetime.now()}] ✅ Initial training completed. Scheduler is now running...")
+        print(f"[{datetime.now()}] Scheduler started. Waiting for scheduled tasks...")
+        print("=" * 80)
+        sys.stdout.flush()
+        
+        # Main loop
         while True:
             schedule.run_pending()
             time.sleep(60)  # Check every minute
+            
     except KeyboardInterrupt:
-        print("\nScheduler stopped by user")
+        print(f"\n[{datetime.now()}] ⛔ Scheduler stopped by user")
+        sys.stdout.flush()
     except Exception as e:
-        print(f"Scheduler error: {str(e)}")
+        print(f"[{datetime.now()}] ❌ Scheduler error: {str(e)}")
+        import traceback
+        print(f"[{datetime.now()}] Traceback:")
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
 
 if __name__ == "__main__":
     main()
