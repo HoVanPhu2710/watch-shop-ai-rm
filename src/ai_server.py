@@ -147,11 +147,25 @@ class AIRecommendationServer:
             logger.info(f"Metadata loaded: n_users={metadata.get('n_users')}, n_items={metadata.get('n_items')}")
             
             # Initialize hybrid model
-            if HybridRecommendationModel is None:
-                # Try to import again if it failed at module level
-                from hybrid_model import HybridRecommendationModel
+            # Import here to avoid circular import issues
+            _hybrid_model_class = None
+            try:
+                # Check if already imported at module level
+                if 'HybridRecommendationModel' in globals():
+                    _hybrid_model_class = globals()['HybridRecommendationModel']
+            except (NameError, KeyError):
+                pass
             
-            self.hybrid_model = HybridRecommendationModel(
+            if _hybrid_model_class is None:
+                # Not imported or import failed, import it now
+                try:
+                    from hybrid_model import HybridRecommendationModel
+                    _hybrid_model_class = HybridRecommendationModel
+                except ImportError as e:
+                    logger.error(f"Failed to import HybridRecommendationModel: {str(e)}")
+                    raise
+            
+            self.hybrid_model = _hybrid_model_class(
                 n_users=metadata['n_users'],
                 n_items=metadata['n_items'],
                 user_feature_dim=metadata['user_feature_dim'],
