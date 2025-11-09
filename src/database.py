@@ -51,7 +51,7 @@ class DatabaseConnection:
                     conn_params['options'] = options
                 
                 # For Supabase, require SSL if not specified
-                if 'supabase' in parsed.hostname and 'sslmode' not in connection_string:
+                if parsed.hostname and 'supabase' in parsed.hostname and 'sslmode' not in connection_string:
                     conn_params['sslmode'] = 'require'
                 
                 # Validate required parameters

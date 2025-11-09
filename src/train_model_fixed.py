@@ -16,11 +16,17 @@ from config import Config
 
 def main():
     """Main training function"""
+    print("=" * 80)
     print("Starting hybrid recommendation model training...")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Script location: {os.path.abspath(__file__)}")
+    print(f"MODEL_SAVE_PATH from config: {Config.MODEL_SAVE_PATH}")
+    print("=" * 80)
     start_time = time.time()
     
     try:
         # Initialize data processor
+        print("Initializing data processor...")
         processor = DataProcessor()
         
         # Load and preprocess data
@@ -28,8 +34,11 @@ def main():
         interactions_df = processor.load_interaction_data()
         
         if len(interactions_df) == 0:
-            print("No interaction data found. Exiting...")
+            print("❌ No interaction data found. Exiting...")
+            print("Please ensure database has interaction data.")
             return
+        
+        print(f"✅ Loaded {len(interactions_df)} interactions")
         
         print("Loading user features...")
         user_features_df = processor.load_user_features()
@@ -93,18 +102,46 @@ def main():
             item_features_processed
         )
         
-        # Save the model
-        model_path = os.path.join(Config.MODEL_SAVE_PATH, 'hybrid_model')
+        # Save the model - resolve absolute path
+        if not os.path.isabs(Config.MODEL_SAVE_PATH):
+            # If relative path, make it relative to the script directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.path.dirname(script_dir)  # Go up one level from src/
+            model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
+        else:
+            model_save_path = Config.MODEL_SAVE_PATH
+        
+        # Ensure directory exists
+        os.makedirs(model_save_path, exist_ok=True)
+        print(f"Saving models to: {model_save_path}")
+        
+        model_path = os.path.join(model_save_path, 'hybrid_model')
+        print(f"Model path: {model_path}")
+        os.makedirs(model_path, exist_ok=True)
+        
+        print("Saving hybrid model...")
         hybrid_model.save_models(model_path)
+        print(f"✅ Hybrid model saved to: {model_path}")
         
         # Save encoders for later use
-        encoder_path = os.path.join(Config.MODEL_SAVE_PATH, 'encoders')
+        encoder_path = os.path.join(model_save_path, 'encoders')
         os.makedirs(encoder_path, exist_ok=True)
+        print(f"Encoder path: {encoder_path}")
         
         import joblib
+        print("Saving encoders...")
         joblib.dump(processor.user_encoder, os.path.join(encoder_path, 'user_encoder.pkl'))
+        print("✅ user_encoder.pkl saved")
         joblib.dump(processor.item_encoder, os.path.join(encoder_path, 'item_encoder.pkl'))
+        print("✅ item_encoder.pkl saved")
         joblib.dump(processor.scaler, os.path.join(encoder_path, 'scaler.pkl'))
+        print("✅ scaler.pkl saved")
+        
+        # Verify files were saved
+        model_files = os.listdir(model_path) if os.path.exists(model_path) else []
+        encoder_files = os.listdir(encoder_path) if os.path.exists(encoder_path) else []
+        print(f"✅ Model files saved: {len(model_files)} files")
+        print(f"✅ Encoder files saved: {len(encoder_files)} files")
         
         # Calculate training duration
         training_duration = int(time.time() - start_time)
@@ -120,6 +157,7 @@ def main():
         
         print(f"Training completed successfully in {training_duration} seconds")
         print(f"Model saved to: {model_path}")
+        print(f"Encoders saved to: {encoder_path}")
         
     except Exception as e:
         print(f"Training failed: {str(e)}")
@@ -160,13 +198,23 @@ def generate_recommendations():
     print("Generating recommendations...")
     
     try:
+        # Resolve model path - same logic as training
+        if not os.path.isabs(Config.MODEL_SAVE_PATH):
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.path.dirname(script_dir)
+            model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
+        else:
+            model_save_path = Config.MODEL_SAVE_PATH
+        
         # Load the trained model
-        model_path = os.path.join(Config.MODEL_SAVE_PATH, 'hybrid_model')
+        model_path = os.path.join(model_save_path, 'hybrid_model')
+        print(f"Loading model from: {model_path}")
         hybrid_model = HybridRecommendationModel(1, 1, 1, 1)  # Dummy dimensions
         hybrid_model.load_models(model_path)
         
         # Load encoders
-        encoder_path = os.path.join(Config.MODEL_SAVE_PATH, 'encoders')
+        encoder_path = os.path.join(model_save_path, 'encoders')
+        print(f"Loading encoders from: {encoder_path}")
         import joblib
         user_encoder = joblib.load(os.path.join(encoder_path, 'user_encoder.pkl'))
         item_encoder = joblib.load(os.path.join(encoder_path, 'item_encoder.pkl'))
