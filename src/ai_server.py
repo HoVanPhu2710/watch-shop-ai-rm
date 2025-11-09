@@ -50,9 +50,20 @@ class AIRecommendationServer:
             logger.info(f"MODEL_SAVE_PATH: {Config.MODEL_SAVE_PATH}")
             
             # Convert to absolute path if relative
+            # Training script is in src/src/ and saves to: project/src/models
+            # AI server is in src/ and should look in: project/src/models
+            # So both should resolve to the same path: project/src/models
             if not os.path.isabs(Config.MODEL_SAVE_PATH):
-                base_path = os.path.dirname(os.path.abspath(__file__))
-                model_save_path = os.path.join(os.path.dirname(base_path), Config.MODEL_SAVE_PATH.lstrip('./'))
+                # Get script directory (where this file is located)
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                # Training script: src/src/ -> base_dir = src/ -> models = src/models
+                # AI server: src/ -> base_dir should be src/ (not project/) to match training
+                # So we stay at script_dir level, not go up
+                # Actually, training goes: src/src -> src -> models = src/models
+                # AI server should go: src -> (stay) -> models = src/models
+                # So base_dir = script_dir (src/) for AI server
+                base_dir = script_dir  # Stay at src/ level to match training's base_dir
+                model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
             else:
                 model_save_path = Config.MODEL_SAVE_PATH
             
@@ -84,14 +95,32 @@ class AIRecommendationServer:
             
             if not os.path.exists(encoder_path):
                 logger.error(f"Encoder path not found: {encoder_path}")
+                logger.error(f"Model save path: {model_save_path}")
+                logger.error(f"Encoder path parent exists: {os.path.exists(os.path.dirname(encoder_path))}")
+                if os.path.exists(os.path.dirname(encoder_path)):
+                    logger.error(f"Parent directory contents: {os.listdir(os.path.dirname(encoder_path))}")
+                return False
+            
+            # List encoder directory contents for debugging
+            if os.path.exists(encoder_path):
+                encoder_dir_contents = os.listdir(encoder_path)
+                logger.info(f"Encoder directory contents: {encoder_dir_contents}")
+            else:
+                logger.error(f"Encoder directory does not exist: {encoder_path}")
                 return False
             
             encoder_files = ['user_encoder.pkl', 'item_encoder.pkl', 'scaler.pkl']
+            missing_files = []
             for enc_file in encoder_files:
                 enc_path = os.path.join(encoder_path, enc_file)
                 if not os.path.exists(enc_path):
+                    missing_files.append(enc_file)
                     logger.error(f"Encoder file not found: {enc_path}")
-                    return False
+            
+            if missing_files:
+                logger.error(f"Missing encoder files: {missing_files}")
+                logger.error(f"Available files in encoder directory: {encoder_dir_contents}")
+                return False
             
             logger.info("Loading encoder files...")
             self.user_encoder = joblib.load(os.path.join(encoder_path, 'user_encoder.pkl'))
