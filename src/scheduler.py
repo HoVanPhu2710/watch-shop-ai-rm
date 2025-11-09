@@ -291,8 +291,32 @@ def main():
         sys.stdout.flush()
         
         # Main loop
+        last_log_time = None
         while True:
             schedule.run_pending()
+            
+            # Log scheduler status every 5 minutes for monitoring
+            current_time = datetime.now()
+            if last_log_time is None or (current_time - last_log_time).total_seconds() >= 300:
+                try:
+                    jobs = schedule.jobs
+                    if jobs:
+                        next_runs = []
+                        for job in jobs:
+                            job_name = job.job_func.__name__
+                            next_run = job.next_run
+                            next_runs.append(f"{job_name}: {next_run}")
+                        print(f"[{current_time}] 📋 Scheduler running. Next runs: {', '.join(next_runs)}")
+                        print(f"[{current_time}] 📊 Training state: {training_state['last_training_status']} (count: {training_state['training_count']})")
+                        print(f"[{current_time}] 📊 Recommendation state: {recommendation_state['last_generation_status']} (count: {recommendation_state['generation_count']})")
+                    else:
+                        print(f"[{current_time}] ⚠️ No scheduled jobs found")
+                    last_log_time = current_time
+                    sys.stdout.flush()
+                except Exception as e:
+                    print(f"[{current_time}] ⚠️ Error logging scheduler status: {e}")
+                    sys.stdout.flush()
+            
             time.sleep(60)  # Check every minute
             
     except KeyboardInterrupt:
