@@ -46,17 +46,16 @@ def train_model():
     sys.stdout.flush()
     
     try:
-        import sys as sys_module
         # Run training script
         script_dir = os.path.dirname(os.path.abspath(__file__))
         training_script = os.path.join(script_dir, 'train_model_fixed.py')
         print(f"[{datetime.now()}] 📝 Running training script: {training_script}")
         print(f"[{datetime.now()}] 📝 Working directory: {script_dir}")
-        print(f"[{datetime.now()}] 📝 Python executable: {sys_module.executable}")
+        print(f"[{datetime.now()}] 📝 Python executable: {sys.executable}")
         sys.stdout.flush()
         
         result = subprocess.run([
-            sys_module.executable, 
+            sys.executable, 
             training_script
         ], capture_output=True, text=True, cwd=script_dir)
         
@@ -75,7 +74,6 @@ def train_model():
             model_path = os.path.join(model_save_path, 'hybrid_model')
             encoder_path = os.path.join(model_save_path, 'encoders')
             
-            import os
             if os.path.exists(model_path):
                 model_files = os.listdir(model_path)
                 print(f"[{datetime.now()}] 📁 Model files created: {len(model_files)} files")
