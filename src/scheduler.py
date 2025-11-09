@@ -58,7 +58,29 @@ def train_model():
             training_state['last_training_status'] = 'success'
             training_state['training_count'] += 1
             print(f"[{datetime.now()}] ✅ Model training completed successfully")
-            print(f"[{datetime.now()}] Training output: {result.stdout[:500]}...")  # Show first 500 chars
+            print(f"[{datetime.now()}] Training output (first 1000 chars):")
+            print(result.stdout[:1000] if result.stdout else "No stdout output")
+            
+            # Check if models were actually saved
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            model_save_path = os.path.join(os.path.dirname(script_dir), Config.MODEL_SAVE_PATH.lstrip('./'))
+            model_path = os.path.join(model_save_path, 'hybrid_model')
+            encoder_path = os.path.join(model_save_path, 'encoders')
+            
+            import os
+            if os.path.exists(model_path):
+                model_files = os.listdir(model_path)
+                print(f"[{datetime.now()}] 📁 Model files created: {len(model_files)} files")
+                print(f"[{datetime.now()}] Model files: {model_files}")
+            else:
+                print(f"[{datetime.now()}] ⚠️ WARNING: Model path does not exist after training: {model_path}")
+            
+            if os.path.exists(encoder_path):
+                encoder_files = os.listdir(encoder_path)
+                print(f"[{datetime.now()}] 📁 Encoder files created: {len(encoder_files)} files")
+                print(f"[{datetime.now()}] Encoder files: {encoder_files}")
+            else:
+                print(f"[{datetime.now()}] ⚠️ WARNING: Encoder path does not exist after training: {encoder_path}")
             
             # Reload models in AI server
             print(f"[{datetime.now()}] 🔄 Reloading models in AI server...")
@@ -70,9 +92,12 @@ def train_model():
         else:
             training_state['last_training_status'] = 'failed'
             training_state['last_training_error'] = result.stderr
-            print(f"[{datetime.now()}] ❌ Model training failed")
-            print(f"[{datetime.now()}] Error output: {result.stderr[:500]}...")
-            print(f"[{datetime.now()}] Stdout: {result.stdout[:500]}...")
+            print(f"[{datetime.now()}] ❌ Model training failed with return code: {result.returncode}")
+            print(f"[{datetime.now()}] ========== STDERR ==========")
+            print(result.stderr if result.stderr else "No stderr output")
+            print(f"[{datetime.now()}] ========== STDOUT ==========")
+            print(result.stdout if result.stdout else "No stdout output")
+            print(f"[{datetime.now()}] ===========================")
             
     except Exception as e:
         training_state['last_training_status'] = 'error'
@@ -179,11 +204,14 @@ def main():
     else:
         schedule.every(recommendation_interval_minutes).minutes.do(generate_recommendations)
     
-    print(f"Training scheduled every {training_interval_minutes} minutes")
-    print(f"Recommendation generation scheduled every {recommendation_interval_minutes} minutes")
+    print(f"✅ Training scheduled every {training_interval_minutes} minutes")
+    print(f"✅ Recommendation generation scheduled every {recommendation_interval_minutes} minutes")
+    print(f"📅 Next training: {schedule.next_run() if hasattr(schedule, 'next_run') else 'N/A'}")
     
     # Run initial training
-    print("Running initial model training...")
+    print("=" * 60)
+    print("🚀 Running initial model training...")
+    print("=" * 60)
     train_model()
     
     print("Scheduler started. Press Ctrl+C to stop.")

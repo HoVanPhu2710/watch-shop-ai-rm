@@ -906,12 +906,13 @@ def get_training_status():
         model_path_info = {
             "model_path_exists": os.path.exists(model_path),
             "encoder_path_exists": os.path.exists(encoder_path),
-            "model_path": model_path
+            "model_path": model_path,
+            "model_save_path": model_save_path
         }
         
         if os.path.exists(model_path):
-            import os
             model_path_info["model_files"] = os.listdir(model_path)
+            model_path_info["model_files_count"] = len(model_path_info["model_files"])
             # Get last modified time
             try:
                 import time
@@ -919,8 +920,32 @@ def get_training_status():
                 model_path_info["last_modified"] = datetime.fromtimestamp(mtime).isoformat()
             except:
                 pass
+        else:
+            model_path_info["model_files"] = []
+            model_path_info["model_files_count"] = 0
+        
+        if os.path.exists(encoder_path):
+            model_path_info["encoder_files"] = os.listdir(encoder_path)
+            model_path_info["encoder_files_count"] = len(model_path_info["encoder_files"])
+            # Check for required encoder files
+            required_encoders = ['user_encoder.pkl', 'item_encoder.pkl', 'scaler.pkl']
+            model_path_info["missing_encoders"] = [f for f in required_encoders if f not in model_path_info["encoder_files"]]
+        else:
+            model_path_info["encoder_files"] = []
+            model_path_info["encoder_files_count"] = 0
+            model_path_info["missing_encoders"] = required_encoders
+        
+        # Check if models are ready
+        model_path_info["models_ready"] = (
+            model_path_info.get("model_files_count", 0) > 0 and
+            model_path_info.get("encoder_files_count", 0) >= 3 and
+            len(model_path_info.get("missing_encoders", [])) == 0
+        )
+        
     except Exception as e:
         model_path_info["error"] = str(e)
+        import traceback
+        model_path_info["traceback"] = traceback.format_exc()
     
     return jsonify({
         "model_loaded": ai_server.model_loaded,
@@ -930,7 +955,8 @@ def get_training_status():
             "training_minutes": int(os.getenv('TRAINING_INTERVAL_MINUTES', '15')),
             "recommendation_minutes": int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))
         },
-        "note": "Check scheduler service logs for detailed training history and status"
+        "status": "ready" if model_path_info.get("models_ready", False) else "waiting_for_training",
+        "note": "Check scheduler service logs for detailed training history and status. If models_ready is false, scheduler is still training or training failed."
     })
 
 @app.route('/api/connections', methods=['GET'])
