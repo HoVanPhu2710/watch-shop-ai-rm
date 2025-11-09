@@ -156,7 +156,11 @@ def reload_ai_models():
         
         # Ensure URL has protocol
         if not ai_server_url.startswith('http'):
-            ai_server_url = f'https://{ai_server_url}'
+            # If it's a Render service name without domain, add .onrender.com
+            if not '.' in ai_server_url and not ':' in ai_server_url:
+                ai_server_url = f'https://{ai_server_url}.onrender.com'
+            else:
+                ai_server_url = f'https://{ai_server_url}'
         
         # Remove trailing slash if present
         ai_server_url = ai_server_url.rstrip('/')
@@ -164,6 +168,7 @@ def reload_ai_models():
         # Call AI server reload endpoint
         reload_url = f'{ai_server_url}/reload-models'
         print(f"[{datetime.now()}] 📡 Calling reload endpoint: {reload_url}")
+        print(f"[{datetime.now()}] 📡 AI_SERVER_URL value: {os.getenv('AI_SERVER_URL')}")
         
         response = requests.post(reload_url, timeout=30)
         print(f"[{datetime.now()}] 📡 Response status: {response.status_code}")
