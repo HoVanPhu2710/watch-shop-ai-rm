@@ -1,25 +1,78 @@
-# Database Configuration
+# ============================================
+# DATABASE CONFIGURATION
+# ============================================
+# Option 1: Use DATABASE_URL (Recommended for Supabase)
+DATABASE_URL=postgresql://postgres:password@host:port/database?sslmode=require
+# Example for Supabase Pooler:
+# DATABASE_URL=postgresql://postgres.project_id:password@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&options=project%3Dproject_id
+
+# Option 2: Use individual DB variables (if DATABASE_URL is not set)
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=watch_shop
 DB_USER=postgres
 DB_PASSWORD=your_password
 
-# Model Configuration
+# ============================================
+# AI SERVER CONFIGURATION
+# ============================================
+# AI Server URL (for scheduler to reload models)
+# For local development:
+AI_SERVER_URL=http://localhost:5001
+# For Render production:
+# AI_SERVER_URL=https://ai-recommendation-server-a73k.onrender.com
+
+# AI Server Host and Port (for local development)
+AI_SERVER_HOST=0.0.0.0
+AI_SERVER_PORT=5001
+
+# ============================================
+# SCHEDULER CONFIGURATION
+# ============================================
+# Training interval in minutes
+TRAINING_INTERVAL_MINUTES=15
+
+# Recommendation generation interval in minutes
+RECOMMENDATION_INTERVAL_MINUTES=5
+
+# ============================================
+# MODEL CONFIGURATION
+# ============================================
+# Path to save trained models (relative to project root)
 MODEL_SAVE_PATH=./models
+
+# Training hyperparameters
 BATCH_SIZE=32
 EPOCHS=50
 LEARNING_RATE=0.001
 
-# Recommendation Configuration
+# ============================================
+# RECOMMENDATION CONFIGURATION
+# ============================================
+# Maximum number of recommendations to return
 MAX_RECOMMENDATIONS=10
+
+# How long recommendations are valid (in hours)
 RECOMMENDATION_EXPIRY_HOURS=24
 
-# Training Configuration
+# ============================================
+# TRAINING CONFIGURATION
+# ============================================
+# Minimum interactions required per user to be included in training
 MIN_INTERACTIONS_PER_USER=5
+
+# Minimum interactions required per item to be included in training
 MIN_INTERACTIONS_PER_ITEM=3
+
+# Train/test split ratio (0.8 = 80% train, 20% test)
 TRAIN_TEST_SPLIT=0.8
 
-# Hybrid Model Weights
+# ============================================
+# HYBRID MODEL WEIGHTS
+# ============================================
+# Weight for collaborative filtering component (0.0 - 1.0)
 COLLABORATIVE_WEIGHT=0.6
+
+# Weight for content-based filtering component (0.0 - 1.0)
+# Note: COLLABORATIVE_WEIGHT + CONTENT_BASED_WEIGHT should equal 1.0
 CONTENT_BASED_WEIGHT=0.4

@@ -146,9 +146,20 @@ def reload_ai_models():
     
     try:
         # Get AI server URL from environment variable
-        ai_server_url = os.getenv('AI_SERVER_URL', 'http://localhost:5001')
+        ai_server_url = os.getenv('AI_SERVER_URL')
+        
+        if not ai_server_url:
+            print(f"[{datetime.now()}] ⚠️ WARNING: AI_SERVER_URL not set. Cannot reload models.")
+            print(f"[{datetime.now()}] Please set AI_SERVER_URL environment variable on Render.")
+            print(f"[{datetime.now()}] Example: https://ai-recommendation-server-a73k.onrender.com")
+            return
+        
+        # Ensure URL has protocol
         if not ai_server_url.startswith('http'):
-            ai_server_url = f'http://{ai_server_url}'
+            ai_server_url = f'https://{ai_server_url}'
+        
+        # Remove trailing slash if present
+        ai_server_url = ai_server_url.rstrip('/')
         
         # Call AI server reload endpoint
         reload_url = f'{ai_server_url}/reload-models'

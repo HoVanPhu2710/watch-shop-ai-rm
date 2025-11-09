@@ -47,7 +47,10 @@ services:
       - key: CONTENT_BASED_WEIGHT
         value: 0.4
       - key: AI_SERVER_URL
-        sync: false
+        fromService:
+          type: web
+          name: ai-recommendation-server
+          property: host
       - key: TRAINING_INTERVAL_MINUTES
         value: 15
       - key: RECOMMENDATION_INTERVAL_MINUTES
@@ -79,7 +82,10 @@ services:
       - key: MODEL_SAVE_PATH
         value: ./models
       - key: AI_SERVER_URL
-        sync: false
+        fromService:
+          type: web
+          name: ai-recommendation-server
+          property: host
       - key: TRAINING_INTERVAL_MINUTES
         value: 15
       - key: RECOMMENDATION_INTERVAL_MINUTES
