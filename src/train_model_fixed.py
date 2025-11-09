@@ -178,8 +178,22 @@ def main():
 
 def save_training_history(model_type, algorithm_version, training_data_size, 
                          training_duration_seconds, model_file_path):
-    """Save training history to database"""
+    """Save training history to database (optional - table may not exist)"""
     try:
+        # Check if table exists first
+        check_query = """
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'model_training_history'
+        )
+        """
+        table_exists = db.execute_query(check_query)
+        
+        if len(table_exists) == 0 or not table_exists.iloc[0][0]:
+            # Table doesn't exist, skip saving history (not critical)
+            return
+        
         query = """
         INSERT INTO model_training_history 
         (model_type, algorithm_version, training_data_size, training_duration_seconds, model_file_path, created_at)
@@ -199,7 +213,8 @@ def save_training_history(model_type, algorithm_version, training_data_size,
         print("Training history saved to database")
         
     except Exception as e:
-        print(f"Failed to save training history: {str(e)}")
+        # Silently ignore - training history is optional
+        pass
 
 def generate_recommendations():
     """Generate recommendations for all users and save to database - Fixed version"""
