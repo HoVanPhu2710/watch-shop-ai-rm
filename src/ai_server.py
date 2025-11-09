@@ -22,9 +22,16 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from database import db
 from config import Config
 
-# Configure logging
+# Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import hybrid model at module level to avoid circular import issues
+try:
+    from hybrid_model import HybridRecommendationModel
+except ImportError as e:
+    logger.warning(f"Could not import HybridRecommendationModel at module level: {e}")
+    HybridRecommendationModel = None
 
 app = Flask(__name__)
 CORS(app)
@@ -140,7 +147,10 @@ class AIRecommendationServer:
             logger.info(f"Metadata loaded: n_users={metadata.get('n_users')}, n_items={metadata.get('n_items')}")
             
             # Initialize hybrid model
-            from hybrid_model import HybridRecommendationModel
+            if HybridRecommendationModel is None:
+                # Try to import again if it failed at module level
+                from hybrid_model import HybridRecommendationModel
+            
             self.hybrid_model = HybridRecommendationModel(
                 n_users=metadata['n_users'],
                 n_items=metadata['n_items'],
