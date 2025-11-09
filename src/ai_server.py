@@ -50,20 +50,26 @@ class AIRecommendationServer:
             logger.info(f"MODEL_SAVE_PATH: {Config.MODEL_SAVE_PATH}")
             
             # Convert to absolute path if relative
-            # Training script is in src/src/ and saves to: project/src/models
-            # AI server is in src/ and should look in: project/src/models
-            # So both should resolve to the same path: project/src/models
+            # Training script: src/src/train_model_fixed.py -> base_dir = src/ -> models = src/models
+            # AI server: src/ai_server.py -> should also use src/ as base_dir
+            # Both should resolve to: /opt/render/project/src/models
             if not os.path.isabs(Config.MODEL_SAVE_PATH):
-                # Get script directory (where this file is located)
-                script_dir = os.path.dirname(os.path.abspath(__file__))
-                # Training script: src/src/ -> base_dir = src/ -> models = src/models
-                # AI server: src/ -> base_dir should be src/ (not project/) to match training
-                # So we stay at script_dir level, not go up
-                # Actually, training goes: src/src -> src -> models = src/models
-                # AI server should go: src -> (stay) -> models = src/models
-                # So base_dir = script_dir (src/) for AI server
-                base_dir = script_dir  # Stay at src/ level to match training's base_dir
+                # Get absolute path of this file
+                current_file = os.path.abspath(__file__)
+                # Get directory containing this file (src/)
+                script_dir = os.path.dirname(current_file)
+                
+                # Training script goes: src/src/ -> dirname -> src/
+                # AI server is already in src/, so we use script_dir directly
+                # But we need to ensure we're at the same level as training's base_dir
+                # Training: os.path.dirname(os.path.dirname(__file__)) from src/src/ = src/
+                # AI server: os.path.dirname(__file__) from src/ = src/ (same!)
+                base_dir = script_dir
                 model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
+                
+                logger.info(f"Current file: {current_file}")
+                logger.info(f"Script dir: {script_dir}")
+                logger.info(f"Base dir: {base_dir}")
             else:
                 model_save_path = Config.MODEL_SAVE_PATH
             
@@ -603,8 +609,9 @@ class AIRecommendationServer:
                 from config import Config
                 # Get actual path for error message
                 if not os.path.isabs(Config.MODEL_SAVE_PATH):
-                    base_path = os.path.dirname(os.path.abspath(__file__))
-                    model_save_path = os.path.join(os.path.dirname(base_path), Config.MODEL_SAVE_PATH.lstrip('./'))
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    base_dir = script_dir  # Stay at src/ level to match training
+                    model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
                 else:
                     model_save_path = Config.MODEL_SAVE_PATH
                 model_path = os.path.join(model_save_path, 'hybrid_model')
