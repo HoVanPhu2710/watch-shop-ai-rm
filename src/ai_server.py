@@ -60,6 +60,7 @@ class AIRecommendationServer:
             
             # Load hybrid model
             model_path = os.path.join(model_save_path, 'hybrid_model')
+            encoder_path = os.path.join(model_save_path, 'encoders')  # Define early for directory creation
             logger.info(f"Checking model path: {model_path}")
             
             if not os.path.exists(model_path):
@@ -79,7 +80,6 @@ class AIRecommendationServer:
                 return False
                 
             # Load encoders
-            encoder_path = os.path.join(model_save_path, 'encoders')
             logger.info(f"Loading encoders from: {encoder_path}")
             
             if not os.path.exists(encoder_path):
