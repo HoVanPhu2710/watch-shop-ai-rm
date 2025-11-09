@@ -856,6 +856,107 @@ def get_stats():
         "last_model_load": ai_server.last_model_load.isoformat() if ai_server.last_model_load else None
     })
 
+@app.route('/scheduler/status', methods=['GET'])
+def get_scheduler_status():
+    """Get scheduler status and training information"""
+    try:
+        # Try to get scheduler status via API if scheduler has API endpoint
+        # For now, return basic info
+        ai_server_url = os.getenv('AI_SERVER_URL', '')
+        
+        return jsonify({
+            "scheduler_configured": True,
+            "ai_server_url": ai_server_url,
+            "server_reachable": True,  # If this endpoint is called, server is reachable
+            "model_status": {
+                "loaded": ai_server.model_loaded,
+                "last_load": ai_server.last_model_load.isoformat() if ai_server.last_model_load else None
+            },
+            "cache_status": {
+                "users_cached": len(ai_server.user_features_cache),
+                "items_cached": len(ai_server.item_features_cache)
+            },
+            "note": "Check scheduler logs for detailed training status. Training runs every 15 minutes, recommendations every 5 minutes."
+        })
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "scheduler_configured": False
+        }), 500
+
+@app.route('/training/status', methods=['GET'])
+def get_training_status():
+    """Get training status and history"""
+    import os
+    from datetime import datetime
+    
+    # Check if models exist
+    model_path_info = {}
+    try:
+        from config import Config
+        if not os.path.isabs(Config.MODEL_SAVE_PATH):
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            model_save_path = os.path.join(os.path.dirname(base_path), Config.MODEL_SAVE_PATH.lstrip('./'))
+        else:
+            model_save_path = Config.MODEL_SAVE_PATH
+        
+        model_path = os.path.join(model_save_path, 'hybrid_model')
+        encoder_path = os.path.join(model_save_path, 'encoders')
+        
+        model_path_info = {
+            "model_path_exists": os.path.exists(model_path),
+            "encoder_path_exists": os.path.exists(encoder_path),
+            "model_path": model_path
+        }
+        
+        if os.path.exists(model_path):
+            import os
+            model_path_info["model_files"] = os.listdir(model_path)
+            # Get last modified time
+            try:
+                import time
+                mtime = os.path.getmtime(model_path)
+                model_path_info["last_modified"] = datetime.fromtimestamp(mtime).isoformat()
+            except:
+                pass
+    except Exception as e:
+        model_path_info["error"] = str(e)
+    
+    return jsonify({
+        "model_loaded": ai_server.model_loaded,
+        "last_model_load": ai_server.last_model_load.isoformat() if ai_server.last_model_load else None,
+        "model_path_info": model_path_info,
+        "training_intervals": {
+            "training_minutes": int(os.getenv('TRAINING_INTERVAL_MINUTES', '15')),
+            "recommendation_minutes": int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))
+        },
+        "note": "Check scheduler service logs for detailed training history and status"
+    })
+
+@app.route('/api/connections', methods=['GET'])
+def get_api_connections():
+    """Get API connection statistics"""
+    # This is a simple endpoint to check if API is accessible
+    return jsonify({
+        "status": "connected",
+        "server": "ai-recommendation-server",
+        "timestamp": datetime.now().isoformat(),
+        "endpoints": {
+            "health": "/health",
+            "stats": "/stats",
+            "training_status": "/training/status",
+            "scheduler_status": "/scheduler/status",
+            "recommendations": "/recommendations/<user_id>",
+            "anonymous_recommendations": "/recommendations/anonymous",
+            "similar_items": "/similar/<watch_id>",
+            "reload_models": "/reload-models (POST)"
+        },
+        "model_status": {
+            "loaded": ai_server.model_loaded,
+            "last_load": ai_server.last_model_load.isoformat() if ai_server.last_model_load else None
+        }
+    })
+
 def main():
     """Main function to start the AI server"""
     logger.info("Starting AI Recommendation Server...")

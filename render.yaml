@@ -49,9 +49,9 @@ services:
       - key: AI_SERVER_URL
         sync: false
       - key: TRAINING_INTERVAL_MINUTES
-        value: 360
+        value: 15
       - key: RECOMMENDATION_INTERVAL_MINUTES
-        value: 120
+        value: 5
 
   - type: worker
     name: ai-scheduler
@@ -81,9 +81,9 @@ services:
       - key: AI_SERVER_URL
         sync: false
       - key: TRAINING_INTERVAL_MINUTES
-        value: 360
+        value: 15
       - key: RECOMMENDATION_INTERVAL_MINUTES
-        value: 120
+        value: 5
       - key: BATCH_SIZE
         value: 32
       - key: EPOCHS

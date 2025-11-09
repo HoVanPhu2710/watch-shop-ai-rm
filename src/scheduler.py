@@ -12,35 +12,83 @@ import requests
 from datetime import datetime
 from config import Config
 
+# Global state for monitoring
+training_state = {
+    'is_training': False,
+    'last_training_start': None,
+    'last_training_end': None,
+    'last_training_status': None,
+    'last_training_error': None,
+    'training_count': 0
+}
+
+recommendation_state = {
+    'is_generating': False,
+    'last_generation_start': None,
+    'last_generation_end': None,
+    'last_generation_status': None,
+    'generation_count': 0
+}
+
 def train_model():
     """Train the recommendation model"""
-    print(f"[{datetime.now()}] Starting scheduled model training...")
+    training_state['is_training'] = True
+    training_state['last_training_start'] = datetime.now()
+    training_state['last_training_status'] = 'running'
+    training_state['last_training_error'] = None
+    
+    print(f"[{datetime.now()}] ========================================")
+    print(f"[{datetime.now()}] 🚀 Starting scheduled model training...")
+    print(f"[{datetime.now()}] Training count: {training_state['training_count'] + 1}")
+    print(f"[{datetime.now()}] ========================================")
     
     try:
         # Run training script
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        print(f"[{datetime.now()}] Running training script: {os.path.join(script_dir, 'train_model_fixed.py')}")
+        
         result = subprocess.run([
             sys.executable, 
             os.path.join(script_dir, 'train_model_fixed.py')
         ], capture_output=True, text=True, cwd=script_dir)
         
+        training_state['last_training_end'] = datetime.now()
+        
         if result.returncode == 0:
-            print(f"[{datetime.now()}] Model training completed successfully")
+            training_state['last_training_status'] = 'success'
+            training_state['training_count'] += 1
+            print(f"[{datetime.now()}] ✅ Model training completed successfully")
+            print(f"[{datetime.now()}] Training output: {result.stdout[:500]}...")  # Show first 500 chars
             
             # Reload models in AI server
+            print(f"[{datetime.now()}] 🔄 Reloading models in AI server...")
             reload_ai_models()
             
             # Generate recommendations after training
+            print(f"[{datetime.now()}] 📊 Generating recommendations after training...")
             generate_recommendations()
         else:
-            print(f"[{datetime.now()}] Model training failed: {result.stderr}")
+            training_state['last_training_status'] = 'failed'
+            training_state['last_training_error'] = result.stderr
+            print(f"[{datetime.now()}] ❌ Model training failed")
+            print(f"[{datetime.now()}] Error output: {result.stderr[:500]}...")
+            print(f"[{datetime.now()}] Stdout: {result.stdout[:500]}...")
             
     except Exception as e:
-        print(f"[{datetime.now()}] Error during model training: {str(e)}")
+        training_state['last_training_status'] = 'error'
+        training_state['last_training_error'] = str(e)
+        print(f"[{datetime.now()}] ❌ Error during model training: {str(e)}")
+        import traceback
+        print(f"[{datetime.now()}] Traceback: {traceback.format_exc()}")
+    finally:
+        training_state['is_training'] = False
+        duration = (training_state['last_training_end'] - training_state['last_training_start']).total_seconds() if training_state['last_training_end'] else None
+        print(f"[{datetime.now()}] Training duration: {duration} seconds" if duration else "")
+        print(f"[{datetime.now()}] ========================================")
 
 def reload_ai_models():
     """Reload models in AI server"""
-    print(f"[{datetime.now()}] Reloading models in AI server...")
+    print(f"[{datetime.now()}] 🔄 Reloading models in AI server...")
     
     try:
         # Get AI server URL from environment variable
@@ -50,26 +98,39 @@ def reload_ai_models():
         
         # Call AI server reload endpoint
         reload_url = f'{ai_server_url}/reload-models'
-        print(f"[{datetime.now()}] Calling reload endpoint: {reload_url}")
+        print(f"[{datetime.now()}] 📡 Calling reload endpoint: {reload_url}")
+        
         response = requests.post(reload_url, timeout=30)
+        print(f"[{datetime.now()}] 📡 Response status: {response.status_code}")
         
         if response.status_code == 200:
             result = response.json()
             if result.get('success'):
-                print(f"[{datetime.now()}] Models reloaded successfully in AI server")
+                print(f"[{datetime.now()}] ✅ Models reloaded successfully in AI server")
             else:
-                print(f"[{datetime.now()}] Failed to reload models: {result.get('message')}")
+                print(f"[{datetime.now()}] ❌ Failed to reload models: {result.get('message')}")
         else:
-            print(f"[{datetime.now()}] AI server reload failed with status: {response.status_code}")
+            print(f"[{datetime.now()}] ❌ AI server reload failed with status: {response.status_code}")
+            print(f"[{datetime.now()}] Response: {response.text[:200]}")
             
+    except requests.exceptions.Timeout:
+        print(f"[{datetime.now()}] ⏱️ Timeout connecting to AI server (30s)")
+    except requests.exceptions.ConnectionError as e:
+        print(f"[{datetime.now()}] 🔌 Connection error to AI server: {str(e)}")
+        print(f"[{datetime.now()}] ⚠️ AI_SERVER_URL might be incorrect or server is down")
     except requests.exceptions.RequestException as e:
-        print(f"[{datetime.now()}] Error connecting to AI server: {str(e)}")
+        print(f"[{datetime.now()}] ❌ Error connecting to AI server: {str(e)}")
     except Exception as e:
-        print(f"[{datetime.now()}] Error during model reload: {str(e)}")
+        print(f"[{datetime.now()}] ❌ Error during model reload: {str(e)}")
 
 def generate_recommendations():
     """Generate recommendations for all users"""
-    print(f"[{datetime.now()}] Starting scheduled recommendation generation...")
+    recommendation_state['is_generating'] = True
+    recommendation_state['last_generation_start'] = datetime.now()
+    recommendation_state['last_generation_status'] = 'running'
+    
+    print(f"[{datetime.now()}] 📊 Starting scheduled recommendation generation...")
+    print(f"[{datetime.now()}] Generation count: {recommendation_state['generation_count'] + 1}")
     
     try:
         # Run recommendation generation script
@@ -80,21 +141,31 @@ def generate_recommendations():
             '--generate-recommendations'
         ], capture_output=True, text=True, cwd=script_dir)
         
+        recommendation_state['last_generation_end'] = datetime.now()
+        
         if result.returncode == 0:
-            print(f"[{datetime.now()}] Recommendation generation completed successfully")
+            recommendation_state['last_generation_status'] = 'success'
+            recommendation_state['generation_count'] += 1
+            print(f"[{datetime.now()}] ✅ Recommendation generation completed successfully")
         else:
-            print(f"[{datetime.now()}] Recommendation generation failed: {result.stderr}")
+            recommendation_state['last_generation_status'] = 'failed'
+            print(f"[{datetime.now()}] ❌ Recommendation generation failed: {result.stderr[:500]}")
             
     except Exception as e:
-        print(f"[{datetime.now()}] Error during recommendation generation: {str(e)}")
+        recommendation_state['last_generation_status'] = 'error'
+        print(f"[{datetime.now()}] ❌ Error during recommendation generation: {str(e)}")
+    finally:
+        recommendation_state['is_generating'] = False
+        duration = (recommendation_state['last_generation_end'] - recommendation_state['last_generation_start']).total_seconds() if recommendation_state['last_generation_end'] else None
+        print(f"[{datetime.now()}] Generation duration: {duration} seconds" if duration else "")
 
 def main():
     """Main scheduler function"""
     print("Starting recommendation system scheduler...")
     
     # Get intervals from environment variables
-    training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '15'))  # Default 6 hours
-    recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))  # Default 2 hours
+    training_interval_minutes = int(os.getenv('TRAINING_INTERVAL_MINUTES', '15'))  # Default 15 minutes
+    recommendation_interval_minutes = int(os.getenv('RECOMMENDATION_INTERVAL_MINUTES', '5'))  # Default 5 minutes
     
     # Schedule model training
     if training_interval_minutes >= 60:
