@@ -905,7 +905,22 @@ def get_recommendations(user_id):
     exclude_interactions = request.args.get('exclude_interactions', 'true').lower() == 'true'
     
     result = ai_server.get_recommendations(user_id, limit, exclude_interactions)
-    return jsonify(result)
+    
+    # Return in the expected format with data as object, not string
+    if 'error' in result:
+        return jsonify({
+            "success": False,
+            "message": result.get('error', 'Failed to get recommendations'),
+            "data": None,
+            "user_type": "authenticated"
+        }), 400
+    
+    return jsonify({
+        "success": True,
+        "message": "Recommendations retrieved successfully",
+        "data": result,  # Return as object, not string
+        "user_type": "authenticated"
+    })
 
 @app.route('/recommendations/anonymous', methods=['GET'])
 def get_anonymous_recommendations():
@@ -914,7 +929,22 @@ def get_anonymous_recommendations():
     profile = request.args.get('profile', 'general', type=str)
     
     result = ai_server.get_anonymous_recommendations(limit, profile)
-    return jsonify(result)
+    
+    # Return in the expected format with data as object, not string
+    if 'error' in result:
+        return jsonify({
+            "success": False,
+            "message": result.get('error', 'Failed to get recommendations'),
+            "data": None,
+            "user_type": "anonymous"
+        }), 400
+    
+    return jsonify({
+        "success": True,
+        "message": "Anonymous recommendations retrieved successfully",
+        "data": result,  # Return as object, not string
+        "user_type": "anonymous"
+    })
 
 @app.route('/similar/<int:watch_id>', methods=['GET'])
 def get_similar_items(watch_id):
