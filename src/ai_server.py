@@ -15,6 +15,7 @@ from flask_cors import CORS
 import joblib
 from datetime import datetime
 import logging
+import math
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -37,6 +38,20 @@ app = Flask(__name__)
 CORS(app)
 
 # Initialize database connection lazily (will be initialized on first use)
+
+def clean_nan_values(obj):
+    """Recursively clean NaN, inf, and -inf values from data structures"""
+    if isinstance(obj, dict):
+        return {k: clean_nan_values(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_nan_values(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj):
+            return None
+        elif math.isinf(obj):
+            return None
+        return obj
+    return obj
 
 class AIRecommendationServer:
     def __init__(self):
@@ -906,6 +921,9 @@ def get_recommendations(user_id):
     
     result = ai_server.get_recommendations(user_id, limit, exclude_interactions)
     
+    # Clean NaN values before returning
+    result = clean_nan_values(result)
+    
     # Return in the expected format with data as object, not string
     if 'error' in result:
         return jsonify({
@@ -929,6 +947,9 @@ def get_anonymous_recommendations():
     profile = request.args.get('profile', 'general', type=str)
     
     result = ai_server.get_anonymous_recommendations(limit, profile)
+    
+    # Clean NaN values before returning
+    result = clean_nan_values(result)
     
     # Return in the expected format with data as object, not string
     if 'error' in result:
