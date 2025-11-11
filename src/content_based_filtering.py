@@ -137,8 +137,8 @@ class ContentBasedFilteringModel:
         """Save the model and scalers"""
         os.makedirs(model_path, exist_ok=True)
         
-        # Save model
-        self.model.save(os.path.join(model_path, 'content_based_model.h5'))
+        # Save model (using modern .keras format)
+        self.model.save(os.path.join(model_path, 'content_based_model.keras'))
         
         # Save scalers
         if self.user_features_scaler is not None:
@@ -150,8 +150,15 @@ class ContentBasedFilteringModel:
     
     def load_model(self, model_path):
         """Load the model and scalers"""
-        # Load model
-        self.model = tf.keras.models.load_model(os.path.join(model_path, 'content_based_model.h5'))
+        # Load model (try .keras first, fallback to .h5 for backward compatibility)
+        keras_path = os.path.join(model_path, 'content_based_model.keras')
+        h5_path = os.path.join(model_path, 'content_based_model.h5')
+        if os.path.exists(keras_path):
+            self.model = tf.keras.models.load_model(keras_path)
+        elif os.path.exists(h5_path):
+            self.model = tf.keras.models.load_model(h5_path)
+        else:
+            raise FileNotFoundError(f"Model file not found at {model_path}")
         
         # Load scalers
         user_scaler_path = os.path.join(model_path, 'user_features_scaler.pkl')

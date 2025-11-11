@@ -120,8 +120,8 @@ class CollaborativeFilteringModel:
         """Save the model and encoders"""
         os.makedirs(model_path, exist_ok=True)
         
-        # Save model
-        self.model.save(os.path.join(model_path, 'collaborative_model.h5'))
+        # Save model (using modern .keras format)
+        self.model.save(os.path.join(model_path, 'collaborative_model.keras'))
         
         # Save encoders
         joblib.dump(self.user_encoder, os.path.join(model_path, 'user_encoder.pkl'))
@@ -131,8 +131,15 @@ class CollaborativeFilteringModel:
     
     def load_model(self, model_path):
         """Load the model and encoders"""
-        # Load model
-        self.model = tf.keras.models.load_model(os.path.join(model_path, 'collaborative_model.h5'))
+        # Load model (try .keras first, fallback to .h5 for backward compatibility)
+        keras_path = os.path.join(model_path, 'collaborative_model.keras')
+        h5_path = os.path.join(model_path, 'collaborative_model.h5')
+        if os.path.exists(keras_path):
+            self.model = tf.keras.models.load_model(keras_path)
+        elif os.path.exists(h5_path):
+            self.model = tf.keras.models.load_model(h5_path)
+        else:
+            raise FileNotFoundError(f"Model file not found at {model_path}")
         
         # Load encoders
         self.user_encoder = joblib.load(os.path.join(model_path, 'user_encoder.pkl'))

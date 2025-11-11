@@ -107,23 +107,71 @@ class DatabaseConnection:
             raise
 
     def put_connection(self, conn):
+        """Return connection to pool, handling edge cases"""
+        if conn is None:
+            return
+        
+        if self.pool is None:
+            # Pool not initialized, just close the connection
+            try:
+                conn.close()
+            except:
+                pass
+            return
+        
         try:
+            # Check if connection is still valid
+            if conn.closed != 0:
+                # Connection already closed, don't try to return it
+                return
+            
+            # Return connection to pool
             self.pool.putconn(conn)
+        except psycopg2.pool.PoolError as e:
+            # Connection not from this pool or already returned
+            # Just close it instead of raising error
+            try:
+                conn.close()
+            except:
+                pass
+            # Don't print error for unkeyed connections (expected in some edge cases)
+            pass
         except Exception as e:
-            print(f"Error returning connection to pool: {e}")
-            raise
+            # Other errors - try to close connection
+            try:
+                conn.close()
+            except:
+                pass
+            # Only print if it's not a pool-related error
+            if "unkeyed" not in str(e).lower():
+                print(f"Warning: Error returning connection to pool: {e}")
 
     def execute_query(self, query, params=None):
         self._ensure_pool()
         conn = self.get_connection()
         try:
+            # Suppress pandas warning about DBAPI2 connections
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=UserWarning, message='.*pandas only supports SQLAlchemy.*')
             df = pd.read_sql_query(query, conn, params=params)
             return df
         except Exception as e:
             print(f"Error executing query: {e}")
             raise
         finally:
-            self.put_connection(conn)
+            # Always try to return connection to pool
+            if conn is not None:
+                try:
+                    # Close any open cursors first
+                    if conn.closed == 0:
+                        # Reset connection state before returning to pool
+                        conn.rollback()
+                except:
+                    pass  # Connection might already be closed
+                
+                # Return connection to pool (handles errors internally)
+                self.put_connection(conn)
 
     def execute_insert(self, query, params=None):
         self._ensure_pool()
@@ -138,7 +186,9 @@ class DatabaseConnection:
             conn.rollback()
             raise
         finally:
-            self.put_connection(conn)
+            # Return connection to pool (handles errors internally)
+            if conn is not None:
+                self.put_connection(conn)
 
     def close(self):
         if self.pool:

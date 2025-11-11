@@ -423,22 +423,27 @@ class AIRecommendationServer:
                     watch_details = self.get_watch_details(item_id)
                     
                     formatted_recommendations.append({
-                        "watch_id": int(item_id),
+                        "watch_id": str(item_id),
                         "score": float(score),
                         "name": item_data.get('name', 'Unknown'),
+                        "code": watch_details.get('code', ''),
                         "description": watch_details.get('description', ''),
+                        "model": watch_details.get('model', ''),
                         "base_price": float(item_data.get('base_price', 0)),
-                        "rating": float(item_data.get('rating', 0)) if item_data.get('rating') else 0.0,
+                        "rating": float(item_data.get('rating', 0)) if item_data.get('rating') else 0,
                         "sold": int(item_data.get('sold', 0)) if item_data.get('sold') else 0,
+                        "status": watch_details.get('status', True),
                         "brand": watch_details.get('brand', {}),
                         "category": watch_details.get('category', {}),
-                        "price_tier": item_data.get('price_tier', 'mid'),
-                        "gender_target": item_data.get('gender_target', 'U'),
-                        "size_category": item_data.get('size_category', 'medium'),
-                        "style_tags": watch_details.get('style_tags', []),
-                        "material_tags": watch_details.get('material_tags', []),
-                        "color_tags": watch_details.get('color_tags', []),
-                        "movement_type_tags": watch_details.get('movement_type_tags', []),
+                        "movement_type": watch_details.get('movement_type', {}),
+                        "case_material": watch_details.get('case_material', ''),
+                        "case_size": watch_details.get('case_size'),
+                        "strap_size": watch_details.get('strap_size'),
+                        "gender": watch_details.get('gender', ''),
+                        "water_resistance": watch_details.get('water_resistance', ''),
+                        "release_date": watch_details.get('release_date', ''),
+                        "thumbnail": watch_details.get('thumbnail', ''),
+                        "slider": watch_details.get('slider', ''),
                         "images": watch_details.get('images', []),
                         "is_ai_recommended": True,
                         "profile_used": profile
@@ -460,13 +465,25 @@ class AIRecommendationServer:
         try:
             query = """
             SELECT 
-                w.description, w.thumbnail, w.slider,
-                w.style_tags, w.material_tags, w.color_tags, w.movement_type_tags,
-                b.name as brand_name, b.id as brand_id,
-                c.name as category_name, c.id as category_id
+                w.code, w.description, w.model, w.thumbnail, w.slider,
+                w.case_material, w.case_size, w.strap_size, w.gender,
+                w.water_resistance, w.release_date, w.status,
+                b.name as brand_name, b.id as brand_id, b.logo_url as brand_logo_url,
+                b.description as brand_description, b.created_at as brand_created_at,
+                b.created_by as brand_created_by, b.updated_at as brand_updated_at,
+                b.updated_by as brand_updated_by, b.del_flag as brand_del_flag,
+                c.name as category_name, c.id as category_id, c.image_url as category_image_url,
+                c.description as category_description, c.created_at as category_created_at,
+                c.created_by as category_created_by, c.updated_at as category_updated_at,
+                c.updated_by as category_updated_by, c.del_flag as category_del_flag,
+                mt.name as movement_type_name, mt.id as movement_type_id,
+                mt.description as movement_type_description, mt.created_at as movement_type_created_at,
+                mt.created_by as movement_type_created_by, mt.updated_at as movement_type_updated_at,
+                mt.updated_by as movement_type_updated_by, mt.del_flag as movement_type_del_flag
             FROM watches w
             LEFT JOIN brands b ON w.brand_id = b.id
             LEFT JOIN categorys c ON w.category_id = c.id
+            LEFT JOIN movement_types mt ON w.movement_type_id = mt.id
             WHERE w.id = %s AND w.del_flag = '0'
             """
             result_df = db.execute_query(query, (int(watch_id),))
@@ -490,30 +507,51 @@ class AIRecommendationServer:
                 except:
                     pass
             
-            # Process tags
-            def parse_tags(tag_str):
-                if not tag_str:
-                    return []
-                try:
-                    import json
-                    return json.loads(tag_str) if isinstance(tag_str, str) else tag_str
-                except:
-                    return []
-            
             return {
+                'code': row['code'] or '',
                 'description': row['description'] or '',
+                'model': row['model'] or '',
                 'images': images,
-                'style_tags': parse_tags(row['style_tags']),
-                'material_tags': parse_tags(row['material_tags']),
-                'color_tags': parse_tags(row['color_tags']),
-                'movement_type_tags': parse_tags(row['movement_type_tags']),
+                'thumbnail': row['thumbnail'] or '',
+                'slider': row['slider'] or '',
+                'case_material': row['case_material'] or '',
+                'case_size': float(row['case_size']) if row['case_size'] else None,
+                'strap_size': float(row['strap_size']) if row['strap_size'] else None,
+                'gender': row['gender'] or '',
+                'water_resistance': row['water_resistance'] or '',
+                'release_date': row['release_date'] or '',
+                'status': bool(row['status']) if row['status'] is not None else True,
                 'brand': {
-                    'id': int(row['brand_id']) if row['brand_id'] else None,
-                    'name': row['brand_name'] or 'Unknown'
+                    'id': str(row['brand_id']) if row['brand_id'] else None,
+                    'name': row['brand_name'] or 'Unknown',
+                    'logo_url': row['brand_logo_url'] or '',
+                    'description': row['brand_description'] or '',
+                    'created_at': row['brand_created_at'] or '',
+                    'created_by': str(row['brand_created_by']) if row['brand_created_by'] else None,
+                    'updated_at': row['brand_updated_at'] or None,
+                    'updated_by': str(row['brand_updated_by']) if row['brand_updated_by'] else None,
+                    'del_flag': row['brand_del_flag'] or '0'
                 },
                 'category': {
-                    'id': int(row['category_id']) if row['category_id'] else None,
-                    'name': row['category_name'] or 'Unknown'
+                    'id': str(row['category_id']) if row['category_id'] else None,
+                    'name': row['category_name'] or 'Unknown',
+                    'image_url': row['category_image_url'] or '',
+                    'description': row['category_description'] or '',
+                    'created_at': row['category_created_at'] or '',
+                    'created_by': str(row['category_created_by']) if row['category_created_by'] else None,
+                    'updated_at': row['category_updated_at'] or None,
+                    'updated_by': str(row['category_updated_by']) if row['category_updated_by'] else None,
+                    'del_flag': row['category_del_flag'] or '0'
+                },
+                'movement_type': {
+                    'id': str(row['movement_type_id']) if row['movement_type_id'] else None,
+                    'name': row['movement_type_name'] or 'Unknown',
+                    'description': row['movement_type_description'] or '',
+                    'created_at': row['movement_type_created_at'] or '',
+                    'created_by': str(row['movement_type_created_by']) if row['movement_type_created_by'] else None,
+                    'updated_at': row['movement_type_updated_at'] or None,
+                    'updated_by': str(row['movement_type_updated_by']) if row['movement_type_updated_by'] else None,
+                    'del_flag': row['movement_type_del_flag'] or '0'
                 }
             }
         except Exception as e:
@@ -525,14 +563,26 @@ class AIRecommendationServer:
         try:
             query = """
             SELECT 
-                w.id, w.name, w.base_price, w.rating, w.sold, w.description,
-                w.price_tier, w.gender_target, w.size_category,
-                w.style_tags, w.material_tags, w.color_tags, w.movement_type_tags,
-                b.name as brand_name, c.name as category_name,
-                w.thumbnail, w.slider
+                w.id, w.name, w.code, w.model, w.base_price, w.rating, w.sold, w.description,
+                w.case_material, w.case_size, w.strap_size, w.gender,
+                w.water_resistance, w.release_date, w.status,
+                w.thumbnail, w.slider,
+                b.name as brand_name, b.id as brand_id, b.logo_url as brand_logo_url,
+                b.description as brand_description, b.created_at as brand_created_at,
+                b.created_by as brand_created_by, b.updated_at as brand_updated_at,
+                b.updated_by as brand_updated_by, b.del_flag as brand_del_flag,
+                c.name as category_name, c.id as category_id, c.image_url as category_image_url,
+                c.description as category_description, c.created_at as category_created_at,
+                c.created_by as category_created_by, c.updated_at as category_updated_at,
+                c.updated_by as category_updated_by, c.del_flag as category_del_flag,
+                mt.name as movement_type_name, mt.id as movement_type_id,
+                mt.description as movement_type_description, mt.created_at as movement_type_created_at,
+                mt.created_by as movement_type_created_by, mt.updated_at as movement_type_updated_at,
+                mt.updated_by as movement_type_updated_by, mt.del_flag as movement_type_del_flag
             FROM watches w
             LEFT JOIN brands b ON w.brand_id = b.id
             LEFT JOIN categorys c ON w.category_id = c.id
+            LEFT JOIN movement_types mt ON w.movement_type_id = mt.id
             WHERE w.del_flag = '0' AND w.status = true
             ORDER BY w.sold DESC, w.rating DESC
             LIMIT %s
@@ -555,37 +605,57 @@ class AIRecommendationServer:
                     except:
                         pass
                 
-                # Process tags
-                def parse_tags(tag_str):
-                    if not tag_str:
-                        return []
-                    try:
-                        import json
-                        return json.loads(tag_str) if isinstance(tag_str, str) else tag_str
-                    except:
-                        return []
-                
                 popular_items.append({
-                    "watch_id": int(row['id']),
+                    "watch_id": str(row['id']),
                     "score": 0.5,  # Default score for popular items
                     "name": row['name'],
+                    "code": row['code'] or "",
                     "description": row['description'] or "",
+                    "model": row['model'] or "",
                     "base_price": float(row['base_price']),
-                    "rating": float(row['rating']) if row['rating'] else 0.0,
+                    "rating": float(row['rating']) if row['rating'] else 0,
                     "sold": int(row['sold']) if row['sold'] else 0,
+                    "status": bool(row['status']) if row['status'] is not None else True,
                     "brand": {
-                        "name": row['brand_name'] or "Unknown"
+                        "id": str(row['brand_id']) if row['brand_id'] else None,
+                        "name": row['brand_name'] or "Unknown",
+                        "logo_url": row['brand_logo_url'] or "",
+                        "description": row['brand_description'] or "",
+                        "created_at": row['brand_created_at'] or "",
+                        "created_by": str(row['brand_created_by']) if row['brand_created_by'] else None,
+                        "updated_at": row['brand_updated_at'] or None,
+                        "updated_by": str(row['brand_updated_by']) if row['brand_updated_by'] else None,
+                        "del_flag": row['brand_del_flag'] or "0"
                     },
                     "category": {
-                        "name": row['category_name'] or "Unknown"
+                        "id": str(row['category_id']) if row['category_id'] else None,
+                        "name": row['category_name'] or "Unknown",
+                        "image_url": row['category_image_url'] or "",
+                        "description": row['category_description'] or "",
+                        "created_at": row['category_created_at'] or "",
+                        "created_by": str(row['category_created_by']) if row['category_created_by'] else None,
+                        "updated_at": row['category_updated_at'] or None,
+                        "updated_by": str(row['category_updated_by']) if row['category_updated_by'] else None,
+                        "del_flag": row['category_del_flag'] or "0"
                     },
-                    "price_tier": row['price_tier'] or "mid",
-                    "gender_target": row['gender_target'] or "U",
-                    "size_category": row['size_category'] or "medium",
-                    "style_tags": parse_tags(row['style_tags']),
-                    "material_tags": parse_tags(row['material_tags']),
-                    "color_tags": parse_tags(row['color_tags']),
-                    "movement_type_tags": parse_tags(row['movement_type_tags']),
+                    "movement_type": {
+                        "id": str(row['movement_type_id']) if row['movement_type_id'] else None,
+                        "name": row['movement_type_name'] or "Unknown",
+                        "description": row['movement_type_description'] or "",
+                        "created_at": row['movement_type_created_at'] or "",
+                        "created_by": str(row['movement_type_created_by']) if row['movement_type_created_by'] else None,
+                        "updated_at": row['movement_type_updated_at'] or None,
+                        "updated_by": str(row['movement_type_updated_by']) if row['movement_type_updated_by'] else None,
+                        "del_flag": row['movement_type_del_flag'] or "0"
+                    },
+                    "case_material": row['case_material'] or "",
+                    "case_size": float(row['case_size']) if row['case_size'] else None,
+                    "strap_size": float(row['strap_size']) if row['strap_size'] else None,
+                    "gender": row['gender'] or "",
+                    "water_resistance": row['water_resistance'] or "",
+                    "release_date": row['release_date'] or "",
+                    "thumbnail": row['thumbnail'] or "",
+                    "slider": row['slider'] or "",
                     "images": images,
                     "is_popular": True
                 })
@@ -729,22 +799,27 @@ class AIRecommendationServer:
                     watch_details = self.get_watch_details(item_id)
                     
                     formatted_recommendations.append({
-                        "watch_id": int(item_id),
+                        "watch_id": str(item_id),
                         "score": float(score),
                         "name": item_data.get('name', 'Unknown'),
+                        "code": watch_details.get('code', ''),
                         "description": watch_details.get('description', ''),
+                        "model": watch_details.get('model', ''),
                         "base_price": float(item_data.get('base_price', 0)),
-                        "rating": float(item_data.get('rating', 0)) if item_data.get('rating') else 0.0,
+                        "rating": float(item_data.get('rating', 0)) if item_data.get('rating') else 0,
                         "sold": int(item_data.get('sold', 0)) if item_data.get('sold') else 0,
+                        "status": watch_details.get('status', True),
                         "brand": watch_details.get('brand', {}),
                         "category": watch_details.get('category', {}),
-                        "price_tier": item_data.get('price_tier', 'mid'),
-                        "gender_target": item_data.get('gender_target', 'U'),
-                        "size_category": item_data.get('size_category', 'medium'),
-                        "style_tags": watch_details.get('style_tags', []),
-                        "material_tags": watch_details.get('material_tags', []),
-                        "color_tags": watch_details.get('color_tags', []),
-                        "movement_type_tags": watch_details.get('movement_type_tags', []),
+                        "movement_type": watch_details.get('movement_type', {}),
+                        "case_material": watch_details.get('case_material', ''),
+                        "case_size": watch_details.get('case_size'),
+                        "strap_size": watch_details.get('strap_size'),
+                        "gender": watch_details.get('gender', ''),
+                        "water_resistance": watch_details.get('water_resistance', ''),
+                        "release_date": watch_details.get('release_date', ''),
+                        "thumbnail": watch_details.get('thumbnail', ''),
+                        "slider": watch_details.get('slider', ''),
                         "images": watch_details.get('images', []),
                         "interaction_info": interaction_info,
                         "is_ai_recommended": True

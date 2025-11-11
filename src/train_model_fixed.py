@@ -38,12 +38,12 @@ def main():
         interactions_df = processor.load_interaction_data()
         
         if len(interactions_df) == 0:
-            print("❌ No interaction data found. Exiting...")
+            print("[ERROR] No interaction data found. Exiting...")
             print("Please ensure database has interaction data.")
             sys.stdout.flush()
             return
         
-        print(f"✅ Loaded {len(interactions_df)} interactions")
+        print(f"[OK] Loaded {len(interactions_df)} interactions")
         sys.stdout.flush()
         
         print("Loading user features...")
@@ -127,7 +127,7 @@ def main():
         
         print("Saving hybrid model...")
         hybrid_model.save_models(model_path)
-        print(f"✅ Hybrid model saved to: {model_path}")
+        print(f"[OK] Hybrid model saved to: {model_path}")
         
         # Save encoders for later use
         encoder_path = os.path.join(model_save_path, 'encoders')
@@ -137,17 +137,17 @@ def main():
         import joblib
         print("Saving encoders...")
         joblib.dump(processor.user_encoder, os.path.join(encoder_path, 'user_encoder.pkl'))
-        print("✅ user_encoder.pkl saved")
+        print("[OK] user_encoder.pkl saved")
         joblib.dump(processor.item_encoder, os.path.join(encoder_path, 'item_encoder.pkl'))
-        print("✅ item_encoder.pkl saved")
+        print("[OK] item_encoder.pkl saved")
         joblib.dump(processor.scaler, os.path.join(encoder_path, 'scaler.pkl'))
-        print("✅ scaler.pkl saved")
+        print("[OK] scaler.pkl saved")
         
         # Verify files were saved
         model_files = os.listdir(model_path) if os.path.exists(model_path) else []
         encoder_files = os.listdir(encoder_path) if os.path.exists(encoder_path) else []
-        print(f"✅ Model files saved: {len(model_files)} files")
-        print(f"✅ Encoder files saved: {len(encoder_files)} files")
+        print(f"[OK] Model files saved: {len(model_files)} files")
+        print(f"[OK] Encoder files saved: {len(encoder_files)} files")
         
         # Calculate training duration
         training_duration = int(time.time() - start_time)
