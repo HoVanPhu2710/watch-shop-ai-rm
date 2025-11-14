@@ -23,13 +23,17 @@ class HybridRecommendationModel:
         
     def train(self, interactions_df, user_features_df, item_features_df):
         """Train both models"""
+        import time
+        
         print("Training Collaborative Filtering Model...")
-        self.collaborative_model.train(
+        cf_start = time.time()
+        cf_history = self.collaborative_model.train(
             interactions_df[['user_encoded', 'item_encoded']],
             interactions_df['normalized_score'],
             interactions_df[['user_encoded', 'item_encoded']],  # Using same data for validation
             interactions_df['normalized_score']
         )
+        cf_duration = int(time.time() - cf_start)
         
         print("Training Content-Based Filtering Model...")
         # Prepare content-based training data: keep ONLY engineered numeric columns
@@ -99,14 +103,24 @@ class HybridRecommendationModel:
         scores_array = np.array(scores)
         
         # Train content-based model
-        self.content_based_model.train(
+        cbf_start = time.time()
+        cbf_history = self.content_based_model.train(
             {'user_features': user_features_array, 'item_features': item_features_array},
             scores_array,
             {'user_features': user_features_array, 'item_features': item_features_array},
             scores_array
         )
+        cbf_duration = int(time.time() - cbf_start)
         
         print("Both models trained successfully!")
+        
+        # Return training histories with durations
+        return {
+            'cf_history': cf_history,
+            'cbf_history': cbf_history,
+            'cf_duration_seconds': cf_duration,
+            'cbf_duration_seconds': cbf_duration
+        }
     
     def predict_hybrid(self, user_id, item_id, user_features, item_features):
         """Make hybrid prediction combining both models"""

@@ -102,11 +102,72 @@ def main():
         
         # Train the model
         print("Training hybrid model...")
-        hybrid_model.train(
+        
+        training_histories = hybrid_model.train(
             interactions_processed,
             user_features_processed,
             item_features_processed
         )
+        
+        # Get training durations from hybrid_model.train return value
+        cf_duration = training_histories.get('cf_duration_seconds', 0)
+        cbf_duration = training_histories.get('cbf_duration_seconds', 0)
+        hybrid_duration = int(time.time() - start_time)  # Total time
+        
+        # Count model parameters
+        cf_params = hybrid_model.collaborative_model.model.count_params() if hybrid_model.collaborative_model.model else 0
+        cbf_params = hybrid_model.content_based_model.model.count_params() if hybrid_model.content_based_model.model else 0
+        hybrid_params = cf_params + cbf_params  # Hybrid combines both
+        
+        # Calculate convergence epochs (epoch where val_loss stops improving significantly)
+        def find_convergence_epoch(val_losses, patience=5):
+            """Find epoch where validation loss stops improving"""
+            if len(val_losses) < patience + 1:
+                return len(val_losses)
+            best_loss = min(val_losses)
+            best_epoch = val_losses.index(best_loss)
+            # Check if loss doesn't improve for 'patience' epochs after best
+            for i in range(best_epoch + patience, len(val_losses)):
+                if val_losses[i] < best_loss * 1.01:  # Within 1% of best
+                    return i
+            return min(best_epoch + patience, len(val_losses))
+        
+        cf_val_losses = training_histories['cf_history'].history.get('val_loss', [])
+        cbf_val_losses = training_histories['cbf_history'].history.get('val_loss', [])
+        cf_convergence = find_convergence_epoch(cf_val_losses) if cf_val_losses else len(cf_val_losses)
+        cbf_convergence = find_convergence_epoch(cbf_val_losses) if cbf_val_losses else len(cbf_val_losses)
+        # Hybrid convergence is max of both (both need to converge)
+        hybrid_convergence = max(cf_convergence, cbf_convergence)
+        
+        # Save training histories for plotting
+        import json
+        history_save_path = os.path.join(model_save_path, 'training_histories.json')
+        histories_data = {
+            'cf': {
+                'loss': training_histories['cf_history'].history.get('loss', []),
+                'val_loss': training_histories['cf_history'].history.get('val_loss', []),
+                'mae': training_histories['cf_history'].history.get('mae', []),
+                'training_duration_seconds': cf_duration,
+                'convergence_epoch': cf_convergence,
+                'num_parameters': cf_params
+            },
+            'cbf': {
+                'loss': training_histories['cbf_history'].history.get('loss', []),
+                'val_loss': training_histories['cbf_history'].history.get('val_loss', []),
+                'mae': training_histories['cbf_history'].history.get('mae', []),
+                'training_duration_seconds': cbf_duration,
+                'convergence_epoch': cbf_convergence,
+                'num_parameters': cbf_params
+            },
+            'hybrid': {
+                'training_duration_seconds': hybrid_duration,
+                'convergence_epoch': hybrid_convergence,
+                'num_parameters': hybrid_params
+            }
+        }
+        with open(history_save_path, 'w') as f:
+            json.dump(histories_data, f, indent=2)
+        print(f"[OK] Training histories saved to: {history_save_path}")
         
         # Save the model - resolve absolute path
         if not os.path.isabs(Config.MODEL_SAVE_PATH):
