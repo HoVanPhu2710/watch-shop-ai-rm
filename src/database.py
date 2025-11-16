@@ -152,9 +152,12 @@ class DatabaseConnection:
         try:
             # Suppress pandas warning about DBAPI2 connections
             import warnings
+            # Filter warnings more comprehensively
             with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', category=UserWarning, message='.*pandas only supports SQLAlchemy.*')
-            df = pd.read_sql_query(query, conn, params=params)
+                warnings.filterwarnings('ignore', category=UserWarning)
+                warnings.filterwarnings('ignore', message='.*pandas only supports SQLAlchemy.*')
+                warnings.filterwarnings('ignore', message='.*DBAPI2.*')
+                df = pd.read_sql_query(query, conn, params=params)
             return df
         except Exception as e:
             print(f"Error executing query: {e}")

@@ -100,6 +100,19 @@ def main():
             item_feature_dim=item_feature_dim
         )
         
+        # Save the model - resolve absolute path FIRST (before training)
+        if not os.path.isabs(Config.MODEL_SAVE_PATH):
+            # If relative path, make it relative to the script directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.path.dirname(script_dir)  # Go up one level from src/
+            model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
+        else:
+            model_save_path = Config.MODEL_SAVE_PATH
+        
+        # Ensure directory exists
+        os.makedirs(model_save_path, exist_ok=True)
+        print(f"Model save path: {model_save_path}")
+        
         # Train the model
         print("Training hybrid model...")
         
@@ -169,17 +182,7 @@ def main():
             json.dump(histories_data, f, indent=2)
         print(f"[OK] Training histories saved to: {history_save_path}")
         
-        # Save the model - resolve absolute path
-        if not os.path.isabs(Config.MODEL_SAVE_PATH):
-            # If relative path, make it relative to the script directory
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            base_dir = os.path.dirname(script_dir)  # Go up one level from src/
-            model_save_path = os.path.join(base_dir, Config.MODEL_SAVE_PATH.lstrip('./'))
-        else:
-            model_save_path = Config.MODEL_SAVE_PATH
-        
-        # Ensure directory exists
-        os.makedirs(model_save_path, exist_ok=True)
+        # Save the model
         print(f"Saving models to: {model_save_path}")
         
         model_path = os.path.join(model_save_path, 'hybrid_model')
@@ -226,6 +229,12 @@ def main():
         print(f"Model saved to: {model_path}")
         print(f"Encoders saved to: {encoder_path}")
         sys.stdout.flush()
+        
+        # Generate training plots after successful training
+        print("\n" + "="*80)
+        print("Generating training plots...")
+        print("="*80)
+        generate_training_plots()
         
     except Exception as e:
         print(f"Training failed: {str(e)}")
@@ -405,11 +414,20 @@ def generate_training_plots():
         scripts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts')
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
-        from plot_training_results import main as plot_main
-        plot_main()
-        print("Training plots generated successfully!")
+        
+        # Change to scripts directory to run plot script
+        original_dir = os.getcwd()
+        try:
+            os.chdir(scripts_dir)
+            from plot_training_results import main as plot_main
+            plot_main()
+            print("Training plots generated successfully!")
+        finally:
+            os.chdir(original_dir)
     except Exception as e:
         print(f"Failed to generate training plots: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--generate-recommendations":
@@ -418,5 +436,4 @@ if __name__ == "__main__":
         generate_training_plots()
     else:
         main()
-        # Generate plots after training
-        generate_training_plots()
+        # Plots are generated inside main() after successful training

@@ -18,20 +18,42 @@ def load_real_training_data(models_dir='models'):
     """Load real training data from saved histories and results"""
     import os
     
-    # Try to load training histories
-    history_path = os.path.join(models_dir, 'training_histories.json')
-    results_path = os.path.join(models_dir, 'training_results.json')
+    # Get script directory and find models directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)  # Go up from scripts/ to project root
     
-    # Fallback: try in src/training_plots
-    if not os.path.exists(history_path):
-        alt_history = os.path.join('src', 'training_plots', 'training_histories.json')
-        if os.path.exists(alt_history):
-            history_path = alt_history
+    # Try multiple paths for training_histories.json
+    possible_history_paths = [
+        os.path.join(project_root, models_dir, 'training_histories.json'),
+        os.path.join(project_root, 'models', 'training_histories.json'),
+        os.path.join(script_dir, '..', models_dir, 'training_histories.json'),
+        os.path.join(script_dir, '..', 'models', 'training_histories.json'),
+        os.path.join(project_root, 'src', 'training_plots', 'training_histories.json'),
+    ]
     
-    if not os.path.exists(results_path):
-        alt_results = os.path.join('src', 'training_plots', 'training_results.json')
-        if os.path.exists(alt_results):
-            results_path = alt_results
+    possible_results_paths = [
+        os.path.join(project_root, models_dir, 'training_results.json'),
+        os.path.join(project_root, 'models', 'training_results.json'),
+        os.path.join(script_dir, '..', models_dir, 'training_results.json'),
+        os.path.join(script_dir, '..', 'models', 'training_results.json'),
+        os.path.join(project_root, 'src', 'training_plots', 'training_results.json'),
+    ]
+    
+    # Find existing files
+    history_path = None
+    results_path = None
+    
+    for path in possible_history_paths:
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path):
+            history_path = abs_path
+            break
+    
+    for path in possible_results_paths:
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path):
+            results_path = abs_path
+            break
     
     # Load training histories if available
     cf_loss = None
@@ -40,7 +62,7 @@ def load_real_training_data(models_dir='models'):
     cbf_val_loss = None
     training_metadata = {}  # Store real training times, convergence, parameters
     
-    if os.path.exists(history_path):
+    if history_path and os.path.exists(history_path):
         try:
             with open(history_path, 'r') as f:
                 histories = json.load(f)
@@ -70,19 +92,30 @@ def load_real_training_data(models_dir='models'):
                     'num_parameters': histories['hybrid'].get('num_parameters')
                 }
             
-            print(f"Loaded training histories from {history_path}")
+            print(f"[OK] Loaded training histories from {history_path}")
+            print(f"   CF: {len(cf_loss) if cf_loss else 0} epochs, duration: {training_metadata.get('cf', {}).get('duration_seconds', 'N/A')}s")
+            print(f"   CBF: {len(cbf_loss) if cbf_loss else 0} epochs, duration: {training_metadata.get('cbf', {}).get('duration_seconds', 'N/A')}s")
+            print(f"   Hybrid: duration: {training_metadata.get('hybrid', {}).get('duration_seconds', 'N/A')}s")
         except Exception as e:
-            print(f"Warning: Could not load training histories: {e}")
+            print(f"[WARNING] Could not load training histories: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"[WARNING] training_histories.json not found. Tried paths:")
+        for path in possible_history_paths:
+            print(f"   - {os.path.abspath(path)}")
     
     # Load final results
     final_results = {}
-    if os.path.exists(results_path):
+    if results_path and os.path.exists(results_path):
         try:
             with open(results_path, 'r') as f:
                 final_results = json.load(f)
-            print(f"Loaded final results from {results_path}")
+            print(f"[OK] Loaded final results from {results_path}")
         except Exception as e:
-            print(f"Warning: Could not load final results: {e}")
+            print(f"[WARNING] Could not load final results: {e}")
+    else:
+        print(f"[WARNING] training_results.json not found")
     
     # Get final values from results
     cf_final = final_results.get('models', {}).get('collaborative_filtering', {})
@@ -281,78 +314,134 @@ def plot_training_summary(data, save_path):
         ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
                 f'{value:.3f}', ha='center', va='bottom', fontweight='bold')
     
-    # Training time (REAL DATA from metadata)
+    # Training time (REAL DATA from metadata - NO FALLBACK VALUES)
     metadata = data.get('metadata', {})
-    if metadata.get('cf') and metadata['cf'].get('duration_seconds'):
-        cf_time = metadata['cf']['duration_seconds'] / 60.0  # Convert to minutes
-    else:
-        cf_time = 5  # Fallback estimate
     
-    if metadata.get('cbf') and metadata['cbf'].get('duration_seconds'):
-        cbf_time = metadata['cbf']['duration_seconds'] / 60.0
-    else:
-        cbf_time = 3  # Fallback estimate
+    # Debug: Print metadata to verify it's loaded
+    print(f"\n[INFO] Plotting Training Summary:")
+    print(f"   Metadata available: {bool(metadata)}")
+    print(f"   Metadata keys: {list(metadata.keys())}")
+    for key in ['cf', 'cbf', 'hybrid']:
+        if key in metadata:
+            print(f"   [OK] {key}: duration={metadata[key].get('duration_seconds')}s, "
+                  f"convergence={metadata[key].get('convergence_epoch')}, "
+                  f"params={metadata[key].get('num_parameters')}")
+        else:
+            print(f"   [NOT FOUND] {key}: NOT FOUND in metadata")
     
-    if metadata.get('hybrid') and metadata['hybrid'].get('duration_seconds'):
-        hybrid_time = metadata['hybrid']['duration_seconds'] / 60.0
-    else:
-        hybrid_time = 7  # Fallback estimate
+    # Get real durations in seconds (will display in seconds if < 60s, minutes if >= 60s)
+    cf_duration_sec = metadata.get('cf', {}).get('duration_seconds')
+    cbf_duration_sec = metadata.get('cbf', {}).get('duration_seconds')
+    hybrid_duration_sec = metadata.get('hybrid', {}).get('duration_seconds')
     
-    training_times = [cf_time, cbf_time, hybrid_time]
+    print(f"   Using durations: CF={cf_duration_sec}s, CBF={cbf_duration_sec}s, Hybrid={hybrid_duration_sec}s")
+    
+    # Use seconds for bar chart (will convert to display format in labels)
+    training_times = [
+        cf_duration_sec if cf_duration_sec is not None else 0.0,
+        cbf_duration_sec if cbf_duration_sec is not None else 0.0,
+        hybrid_duration_sec if hybrid_duration_sec is not None else 0.0
+    ]
     bars2 = ax2.bar(models, training_times, color=colors, alpha=0.7, edgecolor='black', linewidth=1)
-    ax2.set_ylabel('Training Time (minutes)')
+    ax2.set_ylabel('Training Time (seconds)')
     ax2.set_title('Training Time Comparison (Real Data)', fontsize=12, fontweight='bold')
     ax2.grid(True, alpha=0.3, axis='y')
     
-    for bar, value in zip(bars2, training_times):
-        if value < 1:
-            ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1, 
-                    f'{value:.1f} min', ha='center', va='bottom', fontweight='bold')
+    for i, (bar, value) in enumerate(zip(bars2, training_times)):
+        model_keys = ['cf', 'cbf', 'hybrid']
+        model_key = model_keys[i]
+        
+        # Get real duration in seconds from metadata
+        duration_sec = metadata.get(model_key, {}).get('duration_seconds')
+        
+        if duration_sec is None or duration_sec == 0:
+            label = 'N/A'
+        elif duration_sec < 60:
+            # Show in seconds if less than 1 minute
+            label = f'{duration_sec:.1f}s'
         else:
-            ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(training_times) * 0.05, 
-                    f'{value:.1f} min', ha='center', va='bottom', fontweight='bold')
+            # Show in minutes if >= 1 minute
+            label = f'{duration_sec/60:.1f} min'
+        
+        max_val = max(training_times) if max(training_times) > 0 else 1
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max_val * 0.05, 
+                label, ha='center', va='bottom', fontweight='bold', fontsize=10)
     
-    # Convergence speed (REAL DATA from metadata)
-    if metadata.get('cf') and metadata['cf'].get('convergence_epoch'):
-        cf_conv = metadata['cf']['convergence_epoch']
-    else:
-        cf_conv = 25  # Fallback estimate
+    # Convergence speed (REAL DATA from metadata - NO FALLBACK)
+    # Use metadata first, then calculate from loss history if available
+    cf_conv = metadata.get('cf', {}).get('convergence_epoch')
+    cbf_conv = metadata.get('cbf', {}).get('convergence_epoch')
+    hybrid_conv = metadata.get('hybrid', {}).get('convergence_epoch')
     
-    if metadata.get('cbf') and metadata['cbf'].get('convergence_epoch'):
-        cbf_conv = metadata['cbf']['convergence_epoch']
-    else:
-        cbf_conv = 30  # Fallback estimate
+    # If not in metadata, try to calculate from loss history
+    if cf_conv is None and data.get('cf') and len(data['cf'].get('val_loss', [])) > 0:
+        val_losses = data['cf']['val_loss']
+        # Find epoch where loss stops improving (within 1% of minimum)
+        if len(val_losses) > 5:
+            min_loss = min(val_losses)
+            min_idx = val_losses.index(min_loss)
+            # Check if loss doesn't improve significantly after min
+            for i in range(min_idx + 5, len(val_losses)):
+                if val_losses[i] < min_loss * 1.01:
+                    cf_conv = i + 1
+                    break
+            if cf_conv is None:
+                cf_conv = min(min_idx + 5, len(val_losses))
+        else:
+            cf_conv = len(val_losses)
     
-    if metadata.get('hybrid') and metadata['hybrid'].get('convergence_epoch'):
-        hybrid_conv = metadata['hybrid']['convergence_epoch']
-    else:
-        hybrid_conv = 20  # Fallback estimate
+    if cbf_conv is None and data.get('cbf') and len(data['cbf'].get('val_loss', [])) > 0:
+        val_losses = data['cbf']['val_loss']
+        if len(val_losses) > 5:
+            min_loss = min(val_losses)
+            min_idx = val_losses.index(min_loss)
+            for i in range(min_idx + 5, len(val_losses)):
+                if val_losses[i] < min_loss * 1.01:
+                    cbf_conv = i + 1
+                    break
+            if cbf_conv is None:
+                cbf_conv = min(min_idx + 5, len(val_losses))
+        else:
+            cbf_conv = len(val_losses)
     
-    convergence_epochs = [cf_conv, cbf_conv, hybrid_conv]
+    if hybrid_conv is None:
+        if cf_conv is not None and cbf_conv is not None:
+            hybrid_conv = max(cf_conv, cbf_conv)  # Hybrid needs both to converge
+    
+    convergence_epochs = [
+        cf_conv if cf_conv is not None else 0,
+        cbf_conv if cbf_conv is not None else 0,
+        hybrid_conv if hybrid_conv is not None else 0
+    ]
     bars3 = ax3.bar(models, convergence_epochs, color=colors, alpha=0.7, edgecolor='black', linewidth=1)
     ax3.set_ylabel('Epochs to Converge')
     ax3.set_title('Convergence Speed (Real Data)', fontsize=12, fontweight='bold')
     ax3.grid(True, alpha=0.3, axis='y')
     
-    for bar, value in zip(bars3, convergence_epochs):
-        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(convergence_epochs) * 0.05, 
-                f'{value} epochs', ha='center', va='bottom', fontweight='bold')
+    for i, (bar, value) in enumerate(zip(bars3, convergence_epochs)):
+        if value == 0:
+            label = 'N/A'
+        else:
+            label = f'{value} epochs'
+        max_val = max(convergence_epochs) if max(convergence_epochs) > 0 else 1
+        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max_val * 0.05, 
+                label, ha='center', va='bottom', fontweight='bold')
     
-    # Model complexity (REAL DATA - number of parameters)
-    if metadata.get('cf') and metadata['cf'].get('num_parameters'):
+    # Model complexity (REAL DATA - number of parameters - NO FALLBACK)
+    if metadata.get('cf') and metadata['cf'].get('num_parameters') is not None:
         cf_params = metadata['cf']['num_parameters']
     else:
-        cf_params = 125000  # Fallback estimate
+        cf_params = 0  # No fallback - show 0 or N/A
     
-    if metadata.get('cbf') and metadata['cbf'].get('num_parameters'):
+    if metadata.get('cbf') and metadata['cbf'].get('num_parameters') is not None:
         cbf_params = metadata['cbf']['num_parameters']
     else:
-        cbf_params = 98000  # Fallback estimate
+        cbf_params = 0
     
-    if metadata.get('hybrid') and metadata['hybrid'].get('num_parameters'):
+    if metadata.get('hybrid') and metadata['hybrid'].get('num_parameters') is not None:
         hybrid_params = metadata['hybrid']['num_parameters']
     else:
-        hybrid_params = 180000  # Fallback estimate
+        hybrid_params = 0
     
     parameters = [cf_params, cbf_params, hybrid_params]
     bars4 = ax4.bar(models, parameters, color=colors, alpha=0.7, edgecolor='black', linewidth=1)
@@ -360,9 +449,14 @@ def plot_training_summary(data, save_path):
     ax4.set_title('Model Complexity (Real Data)', fontsize=12, fontweight='bold')
     ax4.grid(True, alpha=0.3, axis='y')
     
-    for bar, value in zip(bars4, parameters):
-        ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(parameters) * 0.02, 
-                f'{value:,}', ha='center', va='bottom', fontweight='bold')
+    for i, (bar, value) in enumerate(zip(bars4, parameters)):
+        if value == 0:
+            label = 'N/A'
+        else:
+            label = f'{value:,}'
+        max_val = max(parameters) if max(parameters) > 0 else 1
+        ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max_val * 0.02, 
+                label, ha='center', va='bottom', fontweight='bold')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -371,27 +465,58 @@ def plot_training_summary(data, save_path):
 
 def main():
     """Main function to generate all training plots"""
+    print("="*80)
     print("Generating Training Plots...")
+    print("="*80)
     
-    # Create output directory
-    output_dir = "training_plots"
+    # Get script directory to determine output location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    
+    # Create output directory in scripts/training_plots
+    output_dir = os.path.join(script_dir, "training_plots")
     os.makedirs(output_dir, exist_ok=True)
+    print(f"Output directory: {output_dir}")
+    
+    # Also create in src/training_plots for compatibility
+    src_output_dir = os.path.join(project_root, "src", "training_plots")
+    os.makedirs(src_output_dir, exist_ok=True)
     
     # Load real training data
-    print("Loading real training data...")
+    print("\nLoading real training data...")
     data = load_real_training_data()
+    
+    # Verify metadata was loaded
+    if not data.get('metadata'):
+        print("[WARNING] No metadata found! Biểu đồ sẽ hiển thị N/A cho các giá trị không có dữ liệu.")
+    else:
+        print(f"[OK] Metadata loaded successfully with {len(data['metadata'])} models")
     
     # Generate plots
     print("Generating plots...")
     
     # Individual model plots
+    print("\nGenerating individual model plots...")
     plot_collaborative_filtering(data['cf'], os.path.join(output_dir, "01_collaborative_filtering.png"))
     plot_content_based_filtering(data['cbf'], os.path.join(output_dir, "02_content_based_filtering.png"))
     plot_hybrid_model(data['hybrid'], os.path.join(output_dir, "03_hybrid_model.png"))
     
     # Comparison plots
+    print("\nGenerating comparison plots...")
     plot_comparison(data, os.path.join(output_dir, "04_model_comparison.png"))
+    print("\nGenerating training summary plot...")
     plot_training_summary(data, os.path.join(output_dir, "05_training_summary.png"))
+    
+    # Also save to src/training_plots for compatibility
+    print("\nCopying plots to src/training_plots...")
+    import shutil
+    for filename in ["01_collaborative_filtering.png", "02_content_based_filtering.png", 
+                     "03_hybrid_model.png", "04_model_comparison.png", "05_training_summary.png"]:
+        src = os.path.join(output_dir, filename)
+        dst = os.path.join(src_output_dir, filename)
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+            print(f"   Copied {filename}")
     
     # Save training data as JSON for reference (using real final values)
     training_info = {

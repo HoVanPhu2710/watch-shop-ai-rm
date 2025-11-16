@@ -1,23 +1,24 @@
 {
-  "timestamp": "2025-11-06T07:10:14.216502",
+  "timestamp": "2025-11-15T01:32:42.395420",
   "models": {
     "collaborative_filtering": {
-      "final_train_loss": 0.18127933757762116,
-      "final_val_loss": 0.0458444657928979,
-      "final_rmse": 0.2467019091144608,
+      "final_train_loss": 0.06137905642390251,
+      "final_val_loss": 0.06093506142497063,
+      "final_rmse": 0.24685028139536447,
       "epochs": 50
     },
     "content_based_filtering": {
-      "final_train_loss": 0.2145530389282462,
-      "final_val_loss": 0.13095991275519225,
-      "final_accuracy": 0.9167697282626912,
+      "final_train_loss": 0.09907210618257523,
+      "final_val_loss": 0.09331320971250534,
+      "final_accuracy": 0.8133735805749893,
       "epochs": 50
     },
     "hybrid_model": {
-      "final_train_loss": 0.09534645471744152,
-      "final_val_loss": 0.18940698679626825,
-      "final_ndcg": 0.9149241776736083,
+      "final_train_loss": 0.2625733839799648,
+      "final_val_loss": 0.19359186878502416,
+      "final_ndcg": 0.8403162871059378,
       "epochs": 50
     }
-  }
+  },
+  "note": "Data loaded from real training histories if available, otherwise interpolated from final values"
 }
